@@ -370,6 +370,67 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     setSelectedLeadId(firstLead?.id || null);
   }
 
+  if (!activeCaller && view === "caller") {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-[#f6f7f3] px-4 py-10 text-[#151713] sm:px-6">
+        <section className="w-full max-w-2xl rounded-[32px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.22)] sm:p-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
+              TyreFlow Dialer
+            </p>
+            <Link
+              href="/"
+              className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+            >
+              Subscribers
+            </Link>
+          </div>
+
+          <div className="mt-14">
+            <h1 className="text-5xl font-semibold tracking-[-0.06em] text-white sm:text-6xl">
+              Who is calling?
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-7 text-white/68">
+              Pick your name to load your own lead queue, tasks, recordings, and
+              call notes.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-3">
+            {DIALER_CALLERS.map((caller) => {
+              const assignedCount = data.leads.filter(
+                (lead) => lead.assigned_to === caller.id,
+              ).length;
+              return (
+                <button
+                  key={caller.id}
+                  type="button"
+                  onClick={() => pickCaller(caller)}
+                  className="rounded-3xl border border-white/10 bg-white/[0.05] p-5 text-left transition hover:border-[#b8d45f]/50 hover:bg-white/[0.08]"
+                >
+                  <span className="block text-2xl font-semibold tracking-[-0.03em]">
+                    {caller.name}
+                  </span>
+                  <span className="mt-1 block text-sm text-white/55">
+                    {assignedCount} assigned lead(s)
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setView("admin")}
+            className="mt-6 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/62 transition hover:border-white/30 hover:text-white"
+          >
+            Open admin dashboard
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-[100dvh] bg-[#f6f7f3] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-6">
@@ -397,11 +458,22 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[460px]">
-              {[
-                ["Total", data.stats.total],
-                ["Unassigned", data.stats.unassigned],
-                ["Open tasks", data.stats.openTasks],
-              ].map(([label, value]) => (
+              {(activeCaller
+                ? [
+                    ["My leads", callerLeads.length],
+                    [
+                      "My calls",
+                      data.events.filter((event) => event.caller_id === activeCaller.id)
+                        .length,
+                    ],
+                    ["My tasks", openTasks.length],
+                  ]
+                : [
+                    ["Total", data.stats.total],
+                    ["Unassigned", data.stats.unassigned],
+                    ["Open tasks", data.stats.openTasks],
+                  ]
+              ).map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="font-mono text-3xl font-semibold text-white">{value}</p>
                   <p className="mt-1 text-sm text-white/62">{label}</p>
@@ -416,45 +488,29 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)]">
               <p className="text-sm font-medium text-[#60721f]">Caller session</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-                Who is calling?
+                {activeCaller?.name || "No caller"}
               </h2>
-
-              <div className="mt-5 grid gap-2">
-                {DIALER_CALLERS.map((caller) => (
-                  <button
-                    key={caller.id}
-                    type="button"
-                    onClick={() => pickCaller(caller)}
-                    className={`rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
-                      activeCaller?.id === caller.id
-                        ? "bg-[#151713] text-white"
-                        : "border border-black/8 bg-[#fafbf7] text-black/72 hover:border-black/15 hover:bg-white"
-                    }`}
-                  >
-                    {caller.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setView("caller")}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                    view === "caller" ? "bg-[#dff1a0] text-[#34420d]" : "border border-black/10"
-                  }`}
-                >
-                  Caller
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("admin")}
-                  className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                    view === "admin" ? "bg-[#dff1a0] text-[#34420d]" : "border border-black/10"
-                  }`}
-                >
-                  Admin
-                </button>
+              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl bg-[#fafbf7] p-4">
+                  <p className="font-mono text-2xl font-semibold">
+                    {activeCaller
+                      ? data.leads.filter((lead) => lead.assigned_to === activeCaller.id)
+                          .length
+                      : 0}
+                  </p>
+                  <p className="mt-1 text-black/52">Assigned</p>
+                </div>
+                <div className="rounded-2xl bg-[#fafbf7] p-4">
+                  <p className="font-mono text-2xl font-semibold">
+                    {activeCaller
+                      ? data.tasks.filter(
+                          (task) =>
+                            task.caller_id === activeCaller.id && task.status === "open",
+                        ).length
+                      : 0}
+                  </p>
+                  <p className="mt-1 text-black/52">Open tasks</p>
+                </div>
               </div>
 
               <button
@@ -464,6 +520,18 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                 className="mt-5 w-full rounded-full bg-[#151713] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2a2e24] disabled:cursor-not-allowed disabled:opacity-45"
               >
                 {saving ? "Working..." : "Get 25 leads"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveCaller(null);
+                  setSelectedLeadId(null);
+                  setMessage(null);
+                  setError(null);
+                }}
+                className="mt-3 w-full rounded-full border border-black/10 px-5 py-3 text-sm font-medium transition hover:bg-black/[0.03]"
+              >
+                Switch caller
               </button>
             </div>
 
