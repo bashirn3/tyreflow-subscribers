@@ -11,6 +11,8 @@ export type Subscriber = {
   lat: number | null;
   lon: number | null;
   active: boolean;
+  paid_status: "paid" | "trial";
+  notes: string;
   created_at: string;
   coverages?: Coverage[];
 };
@@ -31,6 +33,8 @@ type FormState = {
   phone: string;
   postcode: string;
   miles: string;
+  paid_status: "paid" | "trial";
+  notes: string;
   coverages: Coverage[];
 };
 
@@ -41,6 +45,8 @@ const initialForm: FormState = {
   phone: "",
   postcode: "",
   miles: "30",
+  paid_status: "trial",
+  notes: "Agreed £50",
   coverages: [],
 };
 
@@ -109,6 +115,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
         subscriber.phone,
         subscriber.postcode,
         String(subscriber.miles),
+        subscriber.paid_status,
+        subscriber.notes,
         ...(subscriber.coverages || []).map(formatCoverage),
       ]
         .join(" ")
@@ -257,7 +265,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
   return (
     <main className="min-h-[100dvh] bg-[#f6f7f3] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[0.9fr_1.25fr]">
-        <section className="rounded-[28px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.18)] sm:p-8">
+        <section className="rounded-[28px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.18)] sm:p-8 lg:sticky lg:top-6 lg:self-start">
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
               TyreFlow
@@ -354,6 +362,32 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                   type="number"
                   min="1"
                   className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-medium">
+                Paid status
+                <select
+                  value={form.paid_status}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      paid_status: event.target.value as "paid" | "trial",
+                    })
+                  }
+                  className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                >
+                  <option value="trial">Trial</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+                Notes
+                <textarea
+                  value={form.notes}
+                  onChange={(event) => setForm({ ...form, notes: event.target.value })}
+                  rows={3}
+                  placeholder="Agreed £50"
+                  className="resize-none rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
                 />
               </label>
             </div>
@@ -507,6 +541,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                           <th className="px-4 py-3 font-semibold">Phone</th>
                           <th className="px-4 py-3 font-semibold">Base</th>
                           <th className="px-4 py-3 font-semibold">Coverage</th>
+                          <th className="px-4 py-3 font-semibold">Payment</th>
+                          <th className="px-4 py-3 font-semibold">Notes</th>
                           <th className="px-4 py-3 font-semibold">Status</th>
                           <th className="px-4 py-3 text-right font-semibold">Actions</th>
                         </tr>
@@ -541,6 +577,22 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                                   </span>
                                 ))}
                               </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                  subscriber.paid_status === "paid"
+                                    ? "bg-[#dff1a0] text-[#34420d]"
+                                    : "bg-amber-100 text-amber-800"
+                                }`}
+                              >
+                                {subscriber.paid_status === "paid" ? "Paid" : "Trial"}
+                              </span>
+                            </td>
+                            <td className="max-w-44 px-4 py-4 text-black/62">
+                              <span className="block truncate" title={subscriber.notes}>
+                                {subscriber.notes || "Agreed £50"}
+                              </span>
                             </td>
                             <td className="px-4 py-4">
                               <span
@@ -604,6 +656,20 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                           <p className="mt-3 text-sm text-black/62">
                             Base {subscriber.postcode}, default {subscriber.miles} miles
                           </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                subscriber.paid_status === "paid"
+                                  ? "bg-[#dff1a0] text-[#34420d]"
+                                  : "bg-amber-100 text-amber-800"
+                              }`}
+                            >
+                              {subscriber.paid_status === "paid" ? "Paid" : "Trial"}
+                            </span>
+                            <span className="text-sm text-black/55">
+                              {subscriber.notes || "Agreed £50"}
+                            </span>
+                          </div>
                           <div className="mt-3 flex flex-wrap gap-1.5">
                             {(subscriber.coverages?.length
                               ? subscriber.coverages

@@ -60,11 +60,15 @@ Run the existing subscriber schema first, then run:
 
 ```text
 supabase/tyreflow-subscriber-coverages-schema.sql
+supabase/tyreflow-subscriber-payment-notes-schema.sql
 ```
 
 The coverage table enables multiple city, area, and radius coverages per
 subscriber. Until it exists, the workflow falls back to the legacy
 `postcode/miles` columns.
+
+The payment/notes migration adds `paid_status` and editable notes to each
+subscriber. New rows default to `trial` with `Agreed £50`.
 
 ## Notes
 
@@ -72,6 +76,8 @@ subscriber. Until it exists, the workflow falls back to the legacy
 - Saving a subscriber with the same phone updates the existing row.
 - Coverage entries like `LA`, `L1`, and `Manchester` are saved as city or area
   matches.
+- Paid status is admin-only for now. Matching still uses active state and
+  coverage.
 - Delete removes the row from Supabase.
 - Pause flips `active` to false without deleting the row.
 

@@ -9,6 +9,8 @@ type SubscriberPayload = {
   postcode?: string;
   miles?: number | string;
   active?: boolean;
+  paid_status?: "paid" | "trial";
+  notes?: string;
   coverages?: CoveragePayload[];
 };
 
@@ -94,6 +96,29 @@ function isMissingTableError(error: unknown) {
   return error instanceof Error && error.message.includes("Could not find the table");
 }
 
+function isMissingColumnError(error: unknown) {
+  return error instanceof Error && error.message.includes("Could not find");
+}
+
+async function fetchSubscriberRows() {
+  try {
+    return await supabaseFetch(
+      "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc",
+    );
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
+
+    const rows = await supabaseFetch(
+      "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,created_at&order=created_at.desc",
+    );
+    return (rows || []).map((row: SubscriberPayload) => ({
+      ...row,
+      paid_status: "trial",
+      notes: "Agreed £50",
+    }));
+  }
+}
+
 async function geocodePostcode(postcode: string) {
   const compact = postcode.replace(/\s+/g, "");
   const postcodeResponse = await fetch(
@@ -173,9 +198,7 @@ async function normalizeCoverage(input: CoveragePayload) {
 
 export async function GET() {
   try {
-    const subscribers = await supabaseFetch(
-      "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,created_at&order=created_at.desc",
-    );
+    const subscribers = await fetchSubscriberRows();
     const coverages = await fetchCoverageRows();
     const coverageBySubscriber = new Map<number, unknown[]>();
 
@@ -227,6 +250,8 @@ export async function POST(request: Request) {
     const phone = normalizePhone(body.phone);
     const postcode = String(body.postcode || "").trim().toUpperCase();
     const miles = Number(body.miles);
+    const paidStatus = body.paid_status === "paid" ? "paid" : "trial";
+    const notes = String(body.notes || "Agreed £50").trim() || "Agreed £50";
     const coverageInputs =
       body.coverages && body.coverages.length
         ? body.coverages
@@ -253,16 +278,34 @@ export async function POST(request: Request) {
       lat,
       lon,
       active: body.active ?? true,
+      paid_status: paidStatus,
+      notes,
     };
 
-    const data = await supabaseFetch(
-      "/rest/v1/tyreflow_subscribers?on_conflict=phone",
-      {
-        method: "POST",
-        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-        body: JSON.stringify(row),
-      },
-    );
+    let data;
+    try {
+      data = await supabaseFetch(
+        "/rest/v1/tyreflow_subscribers?on_conflict=phone",
+        {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify(row),
+        },
+      );
+    } catch (error) {
+      if (!isMissingColumnError(error)) throw error;
+      const legacyRow: Record<string, unknown> = { ...row };
+      delete legacyRow.paid_status;
+      delete legacyRow.notes;
+      data = await supabaseFetch(
+        "/rest/v1/tyreflow_subscribers?on_conflict=phone",
+        {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+          body: JSON.stringify(legacyRow),
+        },
+      );
+    }
 
     const savedSubscriber = data?.[0] || row;
     const subscriberId = savedSubscriber.id;

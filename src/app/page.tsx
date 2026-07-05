@@ -10,8 +10,8 @@ async function getInitialSubscribers(): Promise<Subscriber[]> {
   if (!supabaseUrl || !supabaseKey) return [];
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,created_at&order=created_at.desc`,
+    let response = await fetch(
+      `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc`,
       {
         headers: {
           apikey: supabaseKey,
@@ -21,8 +21,25 @@ async function getInitialSubscribers(): Promise<Subscriber[]> {
       },
     );
 
+    if (!response.ok) {
+      response = await fetch(
+        `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,created_at&order=created_at.desc`,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+          cache: "no-store",
+        },
+      );
+    }
+
     if (!response.ok) return [];
-    const subscribers = await response.json();
+    const subscribers = (await response.json()).map((subscriber: Subscriber) => ({
+      ...subscriber,
+      paid_status: subscriber.paid_status || "trial",
+      notes: subscriber.notes || "Agreed £50",
+    }));
 
     const coverageResponse = await fetch(
       `${supabaseUrl}/rest/v1/tyreflow_subscriber_coverages?select=id,subscriber_id,coverage_type,code,label,postcode,miles,active,created_at&order=created_at.asc`,
