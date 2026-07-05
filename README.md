@@ -87,7 +87,7 @@ subscriber. New rows default to `trial` with `Agreed £50`.
 
 ## TyreFlow dialer
 
-The `/dialer` route opens with a caller picker for Saleh, Arslan, and Ayaz. It
+The `/dialer` route opens with a caller picker for Saalah, Arslan, and Ayaz. It
 then loads that caller's own queue so they can claim 25 unassigned leads, record
 the call from the browser microphone, save notes, and create follow-up tasks.
 

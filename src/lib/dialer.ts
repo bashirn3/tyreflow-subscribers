@@ -77,7 +77,7 @@ export type DialerRecording = {
 };
 
 export const DIALER_CALLERS: DialerCaller[] = [
-  { id: "saleh", name: "Saleh" },
+  { id: "saleh", name: "Saalah" },
   { id: "arslan", name: "Arslan" },
   { id: "ayaz", name: "Ayaz" },
 ];

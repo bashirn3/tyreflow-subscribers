@@ -629,7 +629,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                 <div className="mt-5 grid max-h-[720px] gap-3 overflow-auto pr-1">
                   {!activeCaller && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
-                      Pick Saleh, Arslan, or Ayaz to see assigned leads.
+                      Pick Saalah, Arslan, or Ayaz to see assigned leads.
                     </p>
                   )}
                   {activeCaller && callerLeads.length === 0 && (
@@ -931,7 +931,7 @@ export function AdminView({
         <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
           <p className="text-sm font-medium text-[#60721f]">Callers</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-            Saleh, Arslan, Ayaz
+            Saalah, Arslan, Ayaz
           </h2>
 
           <div className="mt-5 grid gap-3">
