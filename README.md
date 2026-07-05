@@ -1,6 +1,7 @@
-# TyreFlow Subscribers
+# TyreFlow Dashboard
 
-Small Vercel-ready admin frontend for adding and managing TyreFlow subscriber rows.
+Small Vercel-ready admin frontend for TyreFlow subscriber matching and the
+TyreFlow lead dialer.
 
 The app writes to the existing Supabase table:
 
@@ -37,6 +38,8 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+The lead dialer is available at [http://localhost:3000/dialer](http://localhost:3000/dialer).
+
 ## Vercel
 
 Set these environment variables in Vercel:
@@ -61,6 +64,7 @@ Run the existing subscriber schema first, then run:
 ```text
 supabase/tyreflow-subscriber-coverages-schema.sql
 supabase/tyreflow-subscriber-payment-notes-schema.sql
+supabase/tyreflow-dialer-schema.sql
 ```
 
 The coverage table enables multiple city, area, and radius coverages per
@@ -80,5 +84,30 @@ subscriber. New rows default to `trial` with `Agreed £50`.
   coverage.
 - Delete removes the row from Supabase.
 - Pause flips `active` to false without deleting the row.
+
+## TyreFlow dialer
+
+The `/dialer` route is a side-effect-free calling workspace for Saleh, Arslan,
+and Ayaz. It lets a caller claim 25 unassigned leads, record the call from the
+browser microphone, save notes, and create follow-up tasks.
+
+Initial lead import:
+
+```bash
+npm run import:dialer-leads
+```
+
+By default this imports `tyres_deduped_priority_2.csv` from the project root.
+The import upserts by `Phone Number` into `tyreflow_dialer_leads`.
+
+Recording notes:
+
+- Browser recording uses the caller's microphone, so the phone should be on
+  speaker like the MOT reference app.
+- Audio files are uploaded by the server route to the private Supabase Storage
+  bucket `tyreflow-dialer-recordings`.
+- `SUPABASE_SERVICE_ROLE_KEY` is recommended on Vercel for recording upload and
+  playback because the bucket is private.
+- WhatsApp and voice-note outcomes are tasks only in V1. Nothing is sent.
 
 Design guidance is installed at `.agents/skills/design-taste-frontend`.

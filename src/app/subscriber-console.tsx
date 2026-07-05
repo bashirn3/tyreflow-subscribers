@@ -270,9 +270,17 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
               TyreFlow
             </p>
-            <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
-              {activeCount} active
-            </span>
+            <div className="flex items-center gap-2">
+              <a
+                href="/dialer"
+                className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+              >
+                Dialer
+              </a>
+              <span className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70">
+                {activeCount} active
+              </span>
+            </div>
           </div>
 
           <div className="mt-16 max-w-xl">
