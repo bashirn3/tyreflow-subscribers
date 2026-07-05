@@ -133,9 +133,8 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   }, [activeCaller, data.leads, query]);
 
   const selectedLead =
-    data.leads.find((lead) => lead.id === selectedLeadId) ||
+    callerLeads.find((lead) => lead.id === selectedLeadId) ||
     callerLeads[0] ||
-    data.leads[0] ||
     null;
 
   const selectedLeadTasks = selectedLead
@@ -393,6 +392,12 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             </p>
           </div>
 
+          {error && (
+            <p className="mt-6 rounded-2xl bg-red-500/12 px-4 py-3 text-sm text-red-100">
+              {error}
+            </p>
+          )}
+
           <div className="mt-8 grid gap-3">
             {DIALER_CALLERS.map((caller) => {
               const assignedCount = data.leads.filter(
@@ -529,6 +534,17 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
               >
                 Switch caller
               </button>
+              {(message || error) && (
+                <div
+                  className={`mt-4 rounded-2xl px-4 py-3 text-sm ${
+                    error
+                      ? "bg-red-50 text-red-700"
+                      : "bg-[#edf6ca] text-[#35470b]"
+                  }`}
+                >
+                  {error || message}
+                </div>
+              )}
             </div>
 
             <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)]">
@@ -618,7 +634,9 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   )}
                   {activeCaller && callerLeads.length === 0 && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
-                      No leads assigned yet. Click Get 25 leads.
+                      No leads assigned yet. Click Get 25 leads. If nothing is
+                      claimed, the SQL migration or CSV import may still need to
+                      run.
                     </p>
                   )}
                   {callerLeads.map((lead) => (
@@ -720,15 +738,11 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                       </div>
                     </div>
 
-                    {(message || error || recordingStatus) && (
+                    {recordingStatus && (
                       <div
-                        className={`mt-5 rounded-2xl px-4 py-3 text-sm ${
-                          error
-                            ? "bg-red-50 text-red-700"
-                            : "bg-[#edf6ca] text-[#35470b]"
-                        }`}
+                        className="mt-5 rounded-2xl bg-[#edf6ca] px-4 py-3 text-sm text-[#35470b]"
                       >
-                        {error || message || recordingStatus}
+                        {recordingStatus}
                       </div>
                     )}
 
