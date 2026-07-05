@@ -22,7 +22,44 @@ async function getInitialSubscribers(): Promise<Subscriber[]> {
     );
 
     if (!response.ok) return [];
-    return response.json();
+    const subscribers = await response.json();
+
+    const coverageResponse = await fetch(
+      `${supabaseUrl}/rest/v1/tyreflow_subscriber_coverages?select=id,subscriber_id,coverage_type,code,label,postcode,miles,active,created_at&order=created_at.asc`,
+      {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${supabaseKey}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    const coverages = coverageResponse.ok ? await coverageResponse.json() : [];
+    const coverageBySubscriber = new Map<number, unknown[]>();
+    for (const coverage of coverages) {
+      const subscriberId = Number(coverage.subscriber_id);
+      coverageBySubscriber.set(subscriberId, [
+        ...(coverageBySubscriber.get(subscriberId) || []),
+        coverage,
+      ]);
+    }
+
+    return subscribers.map((subscriber: Subscriber) => ({
+      ...subscriber,
+      coverages:
+        coverageBySubscriber.get(subscriber.id) ||
+        [
+          {
+            coverage_type: "radius",
+            code: subscriber.postcode,
+            postcode: subscriber.postcode,
+            miles: subscriber.miles,
+            active: subscriber.active,
+            legacy: true,
+          },
+        ],
+    }));
   } catch {
     return [];
   }

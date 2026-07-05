@@ -12,6 +12,18 @@ export type Subscriber = {
   lon: number | null;
   active: boolean;
   created_at: string;
+  coverages?: Coverage[];
+};
+
+type Coverage = {
+  id?: number | null;
+  coverage_type: "radius" | "prefix";
+  code: string;
+  label?: string | null;
+  postcode?: string | null;
+  miles?: number | null;
+  active?: boolean;
+  legacy?: boolean;
 };
 
 type FormState = {
@@ -19,6 +31,7 @@ type FormState = {
   phone: string;
   postcode: string;
   miles: string;
+  coverages: Coverage[];
 };
 
 type StatusFilter = "all" | "active" | "paused";
@@ -28,7 +41,35 @@ const initialForm: FormState = {
   phone: "",
   postcode: "",
   miles: "30",
+  coverages: [],
 };
+
+const cityCoverageLabels: Record<string, string> = {
+  LA: "Lancaster",
+  L1: "Liverpool",
+  M1: "Manchester",
+  WA: "Warrington",
+  CH: "Cheshire",
+  PR: "Preston",
+  CW: "Crewe",
+  LS: "Leeds",
+  BD: "Bradford",
+  HD: "Huddersfield",
+  HX: "Halifax",
+  OL: "Rochdale",
+  SK: "Stockport",
+  FY: "Blackpool",
+  DN: "Doncaster",
+  WN: "Wigan",
+  BL: "Bolton",
+};
+
+const cityNameToCode = Object.fromEntries(
+  Object.entries(cityCoverageLabels).map(([code, label]) => [
+    label.toLowerCase(),
+    code,
+  ]),
+);
 
 type SubscriberConsoleProps = {
   initialSubscribers: Subscriber[];
@@ -43,6 +84,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [coverageInput, setCoverageInput] = useState("");
+  const [coverageMiles, setCoverageMiles] = useState("30");
 
   const activeCount = useMemo(
     () => subscribers.filter((subscriber) => subscriber.active).length,
@@ -66,6 +109,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
         subscriber.phone,
         subscriber.postcode,
         String(subscriber.miles),
+        ...(subscriber.coverages || []).map(formatCoverage),
       ]
         .join(" ")
         .toLowerCase()
@@ -74,6 +118,61 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
   }, [query, statusFilter, subscribers]);
 
   const pausedCount = subscribers.length - activeCount;
+
+  function normalizeCoverageCode(value: string) {
+    const cleaned = value.trim().toUpperCase().replace(/\s+/g, " ");
+    return cityNameToCode[cleaned.toLowerCase()] || cleaned;
+  }
+
+  function formatCoverage(coverage: Coverage) {
+    if (coverage.coverage_type === "prefix") {
+      const label = coverage.label || cityCoverageLabels[coverage.code];
+      return label ? `${label} - ${coverage.code}` : coverage.code;
+    }
+
+    return `${coverage.code}${coverage.miles ? ` - ${coverage.miles} mi` : ""}`;
+  }
+
+  function addCoverage() {
+    const code = normalizeCoverageCode(coverageInput);
+    if (!code) return;
+
+    const isCityCoverage = Boolean(cityCoverageLabels[code]);
+    const nextCoverage: Coverage = isCityCoverage
+      ? {
+          coverage_type: "prefix",
+          code,
+          label: cityCoverageLabels[code],
+          active: true,
+        }
+      : {
+          coverage_type: "radius",
+          code,
+          postcode: code,
+          miles: Number(coverageMiles || form.miles || 30),
+          active: true,
+        };
+
+    const exists = form.coverages.some(
+      (coverage) =>
+        coverage.coverage_type === nextCoverage.coverage_type &&
+        coverage.code === nextCoverage.code,
+    );
+    if (exists) {
+      setCoverageInput("");
+      return;
+    }
+
+    setForm({ ...form, coverages: [...form.coverages, nextCoverage] });
+    setCoverageInput("");
+  }
+
+  function removeCoverage(index: number) {
+    setForm({
+      ...form,
+      coverages: form.coverages.filter((_, currentIndex) => currentIndex !== index),
+    });
+  }
 
   async function loadSubscribers() {
     setLoading(true);
@@ -106,7 +205,10 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save subscriber.");
 
-      setMessage(`${data.subscriber.name} is ready for matching.`);
+      setMessage(
+        data.coverageWarning ||
+          `${data.subscriber.name} is ready for matching.`,
+      );
       setForm(initialForm);
       await loadSubscribers();
     } catch (saveError) {
@@ -170,8 +272,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
               Subscriber matching console
             </h1>
             <p className="mt-6 max-w-[58ch] text-base leading-7 text-white/68">
-              Add fitters with their phone, base postcode, and coverage radius. The
-              workflow sends each new tyre job only to people inside range.
+              Add fitters with their phone, base postcode, and coverage areas. City
+              prefixes decide eligibility; the base postcode powers drive time.
             </p>
           </div>
 
@@ -233,7 +335,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                 />
               </label>
               <label className="grid gap-2 text-sm font-medium">
-                Postcode
+                Base postcode
                 <input
                   value={form.postcode}
                   onChange={(event) =>
@@ -244,7 +346,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                 />
               </label>
               <label className="grid gap-2 text-sm font-medium">
-                Miles
+                Default miles
                 <input
                   value={form.miles}
                   onChange={(event) => setForm({ ...form, miles: event.target.value })}
@@ -254,6 +356,67 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                   className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
                 />
               </label>
+            </div>
+
+            <div className="mt-5 rounded-3xl border border-black/8 bg-[#fafbf7] p-4">
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+                <div>
+                  <p className="text-sm font-semibold">Coverage areas</p>
+                  <p className="mt-1 text-sm text-black/55">
+                    Add cities like Lancaster, LA, L1, M1, or postcode areas with
+                    miles. If empty, base postcode and default miles are used.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_120px_auto]">
+                <input
+                  value={coverageInput}
+                  onChange={(event) => setCoverageInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addCoverage();
+                    }
+                  }}
+                  placeholder="LA, Lancaster, E14 9GG"
+                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#9fbd38]"
+                />
+                <input
+                  value={coverageMiles}
+                  onChange={(event) => setCoverageMiles(event.target.value)}
+                  placeholder="Miles"
+                  type="number"
+                  min="1"
+                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 outline-none transition focus:border-[#9fbd38]"
+                />
+                <button
+                  type="button"
+                  onClick={addCoverage}
+                  className="rounded-full bg-[#151713] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2a2e24]"
+                >
+                  Add area
+                </button>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {form.coverages.length === 0 && (
+                  <span className="rounded-full border border-dashed border-black/15 px-3 py-2 text-sm text-black/45">
+                    No extra areas yet
+                  </span>
+                )}
+                {form.coverages.map((coverage, index) => (
+                  <button
+                    key={`${coverage.coverage_type}-${coverage.code}`}
+                    type="button"
+                    onClick={() => removeCoverage(index)}
+                    className="rounded-full bg-[#dff1a0] px-3 py-2 text-sm font-medium text-[#34420d] transition hover:bg-[#d2e98a]"
+                    title="Remove coverage"
+                  >
+                    {formatCoverage(coverage)} x
+                  </button>
+                ))}
+              </div>
             </div>
 
             {(message || error) && (
@@ -281,7 +444,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search name, phone, postcode"
+                  placeholder="Search name, phone, coverage"
                   className="min-w-0 rounded-full border border-black/10 bg-[#fafbf7] px-4 py-2.5 text-sm outline-none transition placeholder:text-black/35 focus:border-[#9fbd38] focus:bg-white sm:w-72"
                 />
                 <button
@@ -342,8 +505,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                         <tr>
                           <th className="px-4 py-3 font-semibold">Name</th>
                           <th className="px-4 py-3 font-semibold">Phone</th>
-                          <th className="px-4 py-3 font-semibold">Postcode</th>
-                          <th className="px-4 py-3 font-semibold">Miles</th>
+                          <th className="px-4 py-3 font-semibold">Base</th>
+                          <th className="px-4 py-3 font-semibold">Coverage</th>
                           <th className="px-4 py-3 font-semibold">Status</th>
                           <th className="px-4 py-3 text-right font-semibold">Actions</th>
                         </tr>
@@ -359,7 +522,25 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                               {subscriber.postcode}
                             </td>
                             <td className="px-4 py-4 text-black/62">
-                              {subscriber.miles}
+                              <div className="flex max-w-md flex-wrap gap-1.5">
+                                {(subscriber.coverages?.length
+                                  ? subscriber.coverages
+                                  : [
+                                      {
+                                        coverage_type: "radius" as const,
+                                        code: subscriber.postcode,
+                                        miles: subscriber.miles,
+                                      },
+                                    ]
+                                ).map((coverage, index) => (
+                                  <span
+                                    key={`${coverage.coverage_type}-${coverage.code}-${index}`}
+                                    className="rounded-full bg-white px-2.5 py-1 text-xs text-black/62"
+                                  >
+                                    {formatCoverage(coverage)}
+                                  </span>
+                                ))}
+                              </div>
                             </td>
                             <td className="px-4 py-4">
                               <span
@@ -421,8 +602,27 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                             +{subscriber.phone}
                           </p>
                           <p className="mt-3 text-sm text-black/62">
-                            {subscriber.postcode} within {subscriber.miles} miles
+                            Base {subscriber.postcode}, default {subscriber.miles} miles
                           </p>
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {(subscriber.coverages?.length
+                              ? subscriber.coverages
+                              : [
+                                  {
+                                    coverage_type: "radius" as const,
+                                    code: subscriber.postcode,
+                                    miles: subscriber.miles,
+                                  },
+                                ]
+                            ).map((coverage, index) => (
+                              <span
+                                key={`${coverage.coverage_type}-${coverage.code}-${index}`}
+                                className="rounded-full bg-white px-2.5 py-1 text-xs text-black/62"
+                              >
+                                {formatCoverage(coverage)}
+                              </span>
+                            ))}
+                          </div>
                         </div>
 
                         <div className="flex flex-wrap items-start gap-2">

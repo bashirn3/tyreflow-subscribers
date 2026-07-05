@@ -54,10 +54,24 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 Only use the service role key server-side. Never expose it with `NEXT_PUBLIC_`.
 
+## Supabase migrations
+
+Run the existing subscriber schema first, then run:
+
+```text
+supabase/tyreflow-subscriber-coverages-schema.sql
+```
+
+The coverage table enables multiple city, area, and radius coverages per
+subscriber. Until it exists, the workflow falls back to the legacy
+`postcode/miles` columns.
+
 ## Notes
 
 - Phone numbers are normalized to digits only.
 - Saving a subscriber with the same phone updates the existing row.
+- Coverage entries like `LA`, `L1`, and `Manchester` are saved as city or area
+  matches.
 - Delete removes the row from Supabase.
 - Pause flips `active` to false without deleting the row.
 
