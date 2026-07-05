@@ -87,9 +87,12 @@ subscriber. New rows default to `trial` with `Agreed £50`.
 
 ## TyreFlow dialer
 
-The `/dialer` route is a side-effect-free calling workspace for Saleh, Arslan,
-and Ayaz. It lets a caller claim 25 unassigned leads, record the call from the
-browser microphone, save notes, and create follow-up tasks.
+The `/dialer` route opens with a caller picker for Saleh, Arslan, and Ayaz. It
+then loads that caller's own queue so they can claim 25 unassigned leads, record
+the call from the browser microphone, save notes, and create follow-up tasks.
+
+The admin dashboard lives separately at `/dialer/admin` and requires
+`DIALER_ADMIN_PIN`. If the env var is not set, the default PIN is `9448`.
 
 Initial lead import:
 

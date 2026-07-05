@@ -13,13 +13,13 @@ import {
   type DialerOutcome,
   type DialerTask,
 } from "@/lib/dialer";
-import type { DialerInitialData } from "./page";
+import type { DialerInitialData } from "@/lib/dialer-initial-data";
 
 type DialerConsoleProps = {
   initialData: DialerInitialData;
 };
 
-type DialerData = Omit<DialerInitialData, "error">;
+export type DialerData = Omit<DialerInitialData, "error">;
 
 type RecorderState = {
   media: MediaRecorder | null;
@@ -88,7 +88,6 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     stats: initialData.stats,
   });
   const [activeCaller, setActiveCaller] = useState<DialerCaller | null>(null);
-  const [view, setView] = useState<"caller" | "admin">("caller");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(
     initialData.leads[0]?.id || null,
   );
@@ -152,12 +151,11 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     .filter((task) => !activeCaller || task.caller_id === activeCaller.id)
     .sort((a, b) => String(a.due_at || a.created_at).localeCompare(String(b.due_at || b.created_at)));
 
-  async function reload(nextView = view) {
+  async function reload() {
     setLoading(true);
     setError(null);
     try {
-      const params = nextView === "admin" ? "?view=admin" : "";
-      const response = await fetch(`/api/dialer${params}`, { cache: "no-store" });
+      const response = await fetch("/api/dialer", { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Could not load dialer.");
       setData(payload);
@@ -187,7 +185,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Could not claim leads.");
       setMessage(payload.claimed ? `Claimed ${payload.claimed} lead(s).` : "No unassigned leads left.");
-      await reload("admin");
+      await reload();
       const firstClaimed = payload.leads?.[0];
       if (firstClaimed) setSelectedLeadId(firstClaimed.id);
     } catch (claimError) {
@@ -286,7 +284,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Upload failed.");
       setRecordingStatus("Recording saved.");
-      await reload("admin");
+      await reload();
     } catch (uploadError) {
       setRecordingStatus(
         uploadError instanceof Error ? uploadError.message : "Recording upload failed.",
@@ -330,7 +328,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
       setActiveCallLeadId(null);
       setCallStartedAt(null);
       setNotes((current) => ({ ...current, [selectedLead.id]: "" }));
-      await reload("admin");
+      await reload();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save outcome.");
     } finally {
@@ -351,7 +349,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Could not complete task.");
       setMessage("Task marked done.");
-      await reload("admin");
+      await reload();
     } catch (taskError) {
       setError(taskError instanceof Error ? taskError.message : "Could not complete task.");
     } finally {
@@ -365,12 +363,11 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
 
   function pickCaller(caller: DialerCaller) {
     setActiveCaller(caller);
-    setView("caller");
     const firstLead = data.leads.find((lead) => lead.assigned_to === caller.id);
     setSelectedLeadId(firstLead?.id || null);
   }
 
-  if (!activeCaller && view === "caller") {
+  if (!activeCaller) {
     return (
       <main className="flex min-h-[100dvh] items-center justify-center bg-[#f6f7f3] px-4 py-10 text-[#151713] sm:px-6">
         <section className="w-full max-w-2xl rounded-[32px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.22)] sm:p-8">
@@ -419,13 +416,12 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             })}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setView("admin")}
-            className="mt-6 rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/62 transition hover:border-white/30 hover:text-white"
+          <Link
+            href="/dialer/admin"
+            className="mt-6 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/62 transition hover:border-white/30 hover:text-white"
           >
-            Open admin dashboard
-          </button>
+            Admin dashboard
+          </Link>
         </section>
       </main>
     );
@@ -587,18 +583,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             </div>
           </aside>
 
-          {view === "admin" ? (
-            <AdminView
-              data={data}
-              loading={loading}
-              reload={() => reload("admin")}
-              onPickLead={(leadId) => {
-                setSelectedLeadId(leadId);
-                setView("caller");
-              }}
-            />
-          ) : (
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)]">
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)]">
               <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                   <div>
@@ -611,7 +596,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => reload("admin")}
+                    onClick={() => reload()}
                     className="rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium transition hover:bg-black/[0.03]"
                   >
                     {loading ? "Refreshing..." : "Refresh"}
@@ -872,15 +857,14 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   </>
                 )}
               </div>
-            </section>
-          )}
+          </section>
         </section>
       </div>
     </main>
   );
 }
 
-function AdminView({
+export function AdminView({
   data,
   loading,
   reload,
