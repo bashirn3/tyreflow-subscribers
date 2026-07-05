@@ -21,6 +21,8 @@ type FormState = {
   miles: string;
 };
 
+type StatusFilter = "all" | "active" | "paused";
+
 const initialForm: FormState = {
   name: "",
   phone: "",
@@ -39,11 +41,39 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const activeCount = useMemo(
     () => subscribers.filter((subscriber) => subscriber.active).length,
     [subscribers],
   );
+
+  const filteredSubscribers = useMemo(() => {
+    const search = query.trim().toLowerCase();
+
+    return subscribers.filter((subscriber) => {
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && subscriber.active) ||
+        (statusFilter === "paused" && !subscriber.active);
+
+      if (!matchesStatus) return false;
+      if (!search) return true;
+
+      return [
+        subscriber.name,
+        subscriber.phone,
+        subscriber.postcode,
+        String(subscriber.miles),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(search);
+    });
+  }, [query, statusFilter, subscribers]);
+
+  const pausedCount = subscribers.length - activeCount;
 
   async function loadSubscribers() {
     setLoading(true);
@@ -240,23 +270,52 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
           </form>
 
           <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-end">
               <div>
                 <p className="text-sm font-medium text-[#60721f]">Current list</p>
                 <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
                   Who gets jobs
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={loadSubscribers}
-                className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition hover:border-black/20 hover:bg-black/[0.03]"
-              >
-                Refresh
-              </button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search name, phone, postcode"
+                  className="min-w-0 rounded-full border border-black/10 bg-[#fafbf7] px-4 py-2.5 text-sm outline-none transition placeholder:text-black/35 focus:border-[#9fbd38] focus:bg-white sm:w-72"
+                />
+                <button
+                  type="button"
+                  onClick={loadSubscribers}
+                  className="rounded-full border border-black/10 px-4 py-2.5 text-sm font-medium transition hover:border-black/20 hover:bg-black/[0.03]"
+                >
+                  Refresh
+                </button>
+              </div>
             </div>
 
-            <div className="mt-5 grid gap-3">
+            <div className="mt-5 flex flex-wrap gap-2">
+              {[
+                { label: "All", value: "all", count: subscribers.length },
+                { label: "Active", value: "active", count: activeCount },
+                { label: "Paused", value: "paused", count: pausedCount },
+              ].map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  onClick={() => setStatusFilter(filter.value as StatusFilter)}
+                  className={`rounded-full px-3.5 py-2 text-sm font-medium transition ${
+                    statusFilter === filter.value
+                      ? "bg-[#151713] text-white"
+                      : "border border-black/10 text-black/62 hover:border-black/20 hover:bg-black/[0.03]"
+                  }`}
+                >
+                  {filter.label} {filter.count}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5">
               {loading && (
                 <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
                   Loading subscribers...
@@ -269,52 +328,124 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                 </p>
               )}
 
-              {subscribers.map((subscriber) => (
-                <article
-                  key={subscriber.id}
-                  className="grid gap-4 rounded-2xl border border-black/8 bg-[#fafbf7] p-4 sm:grid-cols-[1fr_auto]"
-                >
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold tracking-[-0.02em]">
-                        {subscriber.name}
-                      </h3>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          subscriber.active
-                            ? "bg-[#dff1a0] text-[#34420d]"
-                            : "bg-black/8 text-black/50"
-                        }`}
-                      >
-                        {subscriber.active ? "Active" : "Paused"}
-                      </span>
-                    </div>
-                    <p className="mt-2 font-mono text-sm text-black/62">
-                      +{subscriber.phone}
-                    </p>
-                    <p className="mt-3 text-sm text-black/62">
-                      {subscriber.postcode} within {subscriber.miles} miles
-                    </p>
+              {!loading && subscribers.length > 0 && filteredSubscribers.length === 0 && (
+                <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
+                  No subscribers match that view.
+                </p>
+              )}
+
+              {!loading && filteredSubscribers.length > 0 && (
+                <>
+                  <div className="hidden overflow-hidden rounded-2xl border border-black/8 md:block">
+                    <table className="w-full border-collapse text-left text-sm">
+                      <thead className="bg-[#eef1e7] text-xs uppercase tracking-[0.12em] text-black/48">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Name</th>
+                          <th className="px-4 py-3 font-semibold">Phone</th>
+                          <th className="px-4 py-3 font-semibold">Postcode</th>
+                          <th className="px-4 py-3 font-semibold">Miles</th>
+                          <th className="px-4 py-3 font-semibold">Status</th>
+                          <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-black/6 bg-[#fafbf7]">
+                        {filteredSubscribers.map((subscriber) => (
+                          <tr key={subscriber.id} className="align-middle">
+                            <td className="px-4 py-4 font-medium">{subscriber.name}</td>
+                            <td className="px-4 py-4 font-mono text-black/62">
+                              +{subscriber.phone}
+                            </td>
+                            <td className="px-4 py-4 font-medium">
+                              {subscriber.postcode}
+                            </td>
+                            <td className="px-4 py-4 text-black/62">
+                              {subscriber.miles}
+                            </td>
+                            <td className="px-4 py-4">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                  subscriber.active
+                                    ? "bg-[#dff1a0] text-[#34420d]"
+                                    : "bg-black/8 text-black/50"
+                                }`}
+                              >
+                                {subscriber.active ? "Active" : "Paused"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSubscriber(subscriber)}
+                                  className="rounded-full border border-black/10 px-3 py-2 text-xs font-medium transition hover:border-black/20 hover:bg-white"
+                                >
+                                  {subscriber.active ? "Pause" : "Enable"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteSubscriber(subscriber)}
+                                  className="rounded-full border border-red-200 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="flex flex-wrap items-start gap-2 sm:justify-end">
-                    <button
-                      type="button"
-                      onClick={() => toggleSubscriber(subscriber)}
-                      className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition hover:border-black/20 hover:bg-white"
-                    >
-                      {subscriber.active ? "Pause" : "Enable"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteSubscriber(subscriber)}
-                      className="rounded-full border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
-                    >
-                      Delete
-                    </button>
+                  <div className="grid gap-3 md:hidden">
+                    {filteredSubscribers.map((subscriber) => (
+                      <article
+                        key={subscriber.id}
+                        className="grid gap-4 rounded-2xl border border-black/8 bg-[#fafbf7] p-4"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-lg font-semibold tracking-[-0.02em]">
+                              {subscriber.name}
+                            </h3>
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                                subscriber.active
+                                  ? "bg-[#dff1a0] text-[#34420d]"
+                                  : "bg-black/8 text-black/50"
+                              }`}
+                            >
+                              {subscriber.active ? "Active" : "Paused"}
+                            </span>
+                          </div>
+                          <p className="mt-2 font-mono text-sm text-black/62">
+                            +{subscriber.phone}
+                          </p>
+                          <p className="mt-3 text-sm text-black/62">
+                            {subscriber.postcode} within {subscriber.miles} miles
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleSubscriber(subscriber)}
+                            className="rounded-full border border-black/10 px-4 py-2 text-sm font-medium transition hover:border-black/20 hover:bg-white"
+                          >
+                            {subscriber.active ? "Pause" : "Enable"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteSubscriber(subscriber)}
+                            className="rounded-full border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </article>
+                    ))}
                   </div>
-                </article>
-              ))}
+                </>
+              )}
             </div>
           </div>
         </section>
