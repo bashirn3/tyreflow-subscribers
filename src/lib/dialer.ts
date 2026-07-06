@@ -100,6 +100,14 @@ export const TASK_OUTCOMES: DialerOutcome[] = [
 ];
 
 export const RECORDINGS_BUCKET = "tyreflow-dialer-recordings";
+export const DIALER_HARD_BLOCKED_PHONES = new Set([
+  "447354247247",
+  "447476190546",
+]);
+
+export function phoneDigits(value: unknown) {
+  return String(value || "").replace(/[^0-9]/g, "");
+}
 
 export function taskTypeForOutcome(outcome: DialerOutcome): DialerTaskType | null {
   if (outcome === "callback") return "callback";
@@ -114,7 +122,7 @@ export function normalizeCaller(raw: unknown): DialerCaller | null {
 }
 
 export function normalizePhone(value: unknown) {
-  const digits = String(value || "").replace(/[^0-9]/g, "");
+  const digits = phoneDigits(value);
   if (!digits) return "";
   if (digits.startsWith("44")) return `+${digits}`;
   if (digits.startsWith("0") && digits.length >= 10) return `+44${digits.slice(1)}`;
@@ -205,9 +213,27 @@ export async function fetchDialerLeads(callerId?: string) {
 
   if (callerId) filters.push(`assigned_to=eq.${encodeURIComponent(callerId)}`);
 
-  return supabaseFetch<DialerLead[]>(
+  const leads = await supabaseFetch<DialerLead[]>(
     `/rest/v1/tyreflow_dialer_leads?${filters.join("&")}`,
   );
+  const subscriberPhones = await fetchTyreFlowSubscriberPhones();
+
+  return leads.filter((lead) => {
+    const digits = phoneDigits(lead.phone);
+    return !DIALER_HARD_BLOCKED_PHONES.has(digits) && !subscriberPhones.has(digits);
+  });
+}
+
+export async function fetchTyreFlowSubscriberPhones() {
+  try {
+    const rows = await supabaseFetch<{ phone: string }[]>(
+      "/rest/v1/tyreflow_subscribers?select=phone&limit=20000",
+    );
+
+    return new Set(rows.map((row) => phoneDigits(row.phone)).filter(Boolean));
+  } catch {
+    return new Set<string>();
+  }
 }
 
 export async function fetchDialerTasks(callerId?: string) {

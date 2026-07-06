@@ -114,11 +114,18 @@ as $$
 begin
   return query
   with picked as (
-    select id
-    from tyreflow_dialer_leads
-    where status = 'unassigned'
-      and assigned_to is null
-    order by is_business desc, groups_count desc, id asc
+    select leads.id
+    from tyreflow_dialer_leads leads
+    where leads.status = 'unassigned'
+      and leads.assigned_to is null
+      and regexp_replace(coalesce(leads.phone, ''), '[^0-9]', '', 'g') not in ('447354247247', '447476190546')
+      and not exists (
+        select 1
+        from tyreflow_subscribers subscribers
+        where regexp_replace(coalesce(subscribers.phone, ''), '[^0-9]', '', 'g')
+          = regexp_replace(coalesce(leads.phone, ''), '[^0-9]', '', 'g')
+      )
+    order by leads.is_business desc, leads.groups_count desc, leads.id asc
     limit greatest(1, least(coalesce(p_limit, 25), 100))
     for update skip locked
   )

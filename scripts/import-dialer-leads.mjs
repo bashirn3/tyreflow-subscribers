@@ -77,7 +77,17 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function exclusionReason(lead) {
+const HARD_BLOCKED_DIALER_PHONES = new Set(["447354247247", "447476190546"]);
+
+function phoneDigits(value) {
+  return String(value || "").replace(/[^0-9]/g, "");
+}
+
+function exclusionReason(lead, subscriberPhones = new Set()) {
+  const phone = phoneDigits(lead.phone);
+  if (HARD_BLOCKED_DIALER_PHONES.has(phone)) return "Dialer hard-filter number";
+  if (subscriberPhones.has(phone)) return "Existing TyreFlow subscriber";
+
   const groupText = [lead.assigned_group, lead.all_groups].join(" ");
   if (/tyres?\s+anywhere\s+live/i.test(groupText)) {
     return "Tyres Anywhere Live group";
@@ -90,7 +100,7 @@ function exclusionReason(lead) {
   return null;
 }
 
-function mapRow(row) {
+function mapRow(row, subscriberPhones) {
   const savedName = (row["Saved Name"] || "").trim();
   const publicName = (row["Public Display Name"] || "").trim();
   const phone = (row["Phone Number"] || "").trim();
@@ -111,7 +121,7 @@ function mapRow(row) {
     status: "unassigned",
   };
 
-  const reason = exclusionReason(lead);
+  const reason = exclusionReason(lead, subscriberPhones);
   if (!reason) return lead;
 
   return {
@@ -125,7 +135,7 @@ function mapRow(row) {
   };
 }
 
-function rowsFromCsv(csvPath) {
+function rowsFromCsv(csvPath, subscriberPhones) {
   const parsed = parseCsv(fs.readFileSync(csvPath, "utf8"));
   const headers = parsed.shift();
   if (!headers) throw new Error("CSV has no header row.");
@@ -134,21 +144,11 @@ function rowsFromCsv(csvPath) {
     .map((cells) =>
       Object.fromEntries(headers.map((header, index) => [header, cells[index] || ""])),
     )
-    .map(mapRow)
+    .map((row) => mapRow(row, subscriberPhones))
     .filter((row) => row.phone && row.display_name);
 }
 
-async function supabaseUpsert(rows) {
-  loadEnvFile(".env.local");
-  loadEnvFile(".env");
-
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error("Missing SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_SERVICE_ROLE_KEY.");
-  }
-
+async function supabaseUpsert(rows, supabaseUrl, supabaseKey) {
   let imported = 0;
   const batchSize = 250;
   for (let start = 0; start < rows.length; start += batchSize) {
@@ -174,11 +174,39 @@ async function supabaseUpsert(rows) {
   }
 }
 
+async function fetchSubscriberPhones(supabaseUrl, supabaseKey) {
+  const response = await fetch(`${supabaseUrl}/rest/v1/tyreflow_subscribers?select=phone&limit=20000`, {
+    headers: {
+      apikey: supabaseKey,
+      Authorization: `Bearer ${supabaseKey}`,
+    },
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Could not fetch subscriber phones (${response.status}): ${text}`);
+  }
+
+  const rows = await response.json();
+  return new Set(rows.map((row) => phoneDigits(row.phone)).filter(Boolean));
+}
+
 async function main() {
+  loadEnvFile(".env.local");
+  loadEnvFile(".env");
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error("Missing SUPABASE_URL and SUPABASE_ANON_KEY/SUPABASE_SERVICE_ROLE_KEY.");
+  }
+
   const csvPath = path.resolve(process.argv[2] || DEFAULT_CSV);
-  const rows = rowsFromCsv(csvPath);
+  const subscriberPhones = await fetchSubscriberPhones(supabaseUrl, supabaseKey);
+  const rows = rowsFromCsv(csvPath, subscriberPhones);
   console.log(`Found ${rows.length} dialer lead(s) in ${csvPath}`);
-  await supabaseUpsert(rows);
+  await supabaseUpsert(rows, supabaseUrl, supabaseKey);
   console.log("Done.");
 }
 

@@ -109,6 +109,8 @@ Dialer exclusions:
 - Leads in the `Tyres Anywhere Live` group are marked `excluded`.
 - Leads with `M25`, `logistics`, or `Tyres` in their contact name are marked
   `excluded`.
+- Hard-filtered phones `+447354247247`, `+447476190546`, and all numbers already
+  in `tyreflow_subscribers` are excluded from dialer queues.
 - Excluded leads stay in Supabase for audit/recovery, but they are hidden from
   dialer queues and are never claimed by the 25-lead assignment RPC.
 
