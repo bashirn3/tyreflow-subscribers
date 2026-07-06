@@ -18,10 +18,12 @@ create table if not exists tyreflow_dialer_leads (
   last_outcome text,
   last_note text,
   last_called_at timestamptz,
+  excluded_reason text,
+  excluded_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint tyreflow_dialer_leads_status_check
-    check (status in ('unassigned', 'assigned', 'called', 'closed'))
+    check (status in ('unassigned', 'assigned', 'called', 'closed', 'excluded'))
 );
 
 create index if not exists tyreflow_dialer_leads_assigned_to_idx

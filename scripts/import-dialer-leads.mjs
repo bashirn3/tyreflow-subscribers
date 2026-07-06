@@ -77,13 +77,26 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function exclusionReason(lead) {
+  const groupText = [lead.assigned_group, lead.all_groups].join(" ");
+  if (/tyres?\s+anywhere\s+live/i.test(groupText)) {
+    return "Tyres Anywhere Live group";
+  }
+
+  const nameText = [lead.display_name, lead.saved_name, lead.public_display_name].join(" ");
+  if (/m\s*25|logistics/i.test(nameText)) return "M25/admin-style contact";
+  if (/tyres/i.test(nameText)) return "Tyres in contact name";
+
+  return null;
+}
+
 function mapRow(row) {
   const savedName = (row["Saved Name"] || "").trim();
   const publicName = (row["Public Display Name"] || "").trim();
   const phone = (row["Phone Number"] || "").trim();
   const displayName = savedName || publicName || phone;
 
-  return {
+  const lead = {
     phone,
     display_name: displayName,
     public_display_name: publicName || null,
@@ -96,6 +109,19 @@ function mapRow(row) {
     is_my_contact: bool(row["Is My Contact"]),
     is_business: bool(row["Is Business"]),
     status: "unassigned",
+  };
+
+  const reason = exclusionReason(lead);
+  if (!reason) return lead;
+
+  return {
+    ...lead,
+    status: "excluded",
+    assigned_to: null,
+    assigned_name: null,
+    assigned_at: null,
+    excluded_reason: reason,
+    excluded_at: new Date().toISOString(),
   };
 }
 

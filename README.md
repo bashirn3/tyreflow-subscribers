@@ -65,6 +65,7 @@ Run the existing subscriber schema first, then run:
 supabase/tyreflow-subscriber-coverages-schema.sql
 supabase/tyreflow-subscriber-payment-notes-schema.sql
 supabase/tyreflow-dialer-schema.sql
+supabase/tyreflow-inbound-leads-schema.sql
 ```
 
 The coverage table enables multiple city, area, and radius coverages per
@@ -103,6 +104,14 @@ npm run import:dialer-leads
 By default this imports `tyres_deduped_priority_2.csv` from the project root.
 The import upserts by `Phone Number` into `tyreflow_dialer_leads`.
 
+Dialer exclusions:
+
+- Leads in the `Tyres Anywhere Live` group are marked `excluded`.
+- Leads with `M25`, `logistics`, or `Tyres` in their contact name are marked
+  `excluded`.
+- Excluded leads stay in Supabase for audit/recovery, but they are hidden from
+  dialer queues and are never claimed by the 25-lead assignment RPC.
+
 Recording notes:
 
 - Browser recording uses the caller's microphone, so the phone should be on
@@ -112,5 +121,12 @@ Recording notes:
 - `SUPABASE_SERVICE_ROLE_KEY` is recommended on Vercel for recording upload and
   playback because the bucket is private.
 - WhatsApp and voice-note outcomes are tasks only in V1. Nothing is sent.
+
+## TyreFlow inbound leads
+
+Wasup1 inbound messages that are not valid `Send location` requests should not
+go to the old Crawl4AI/dental flow. They are logged through
+`tyreflow_log_inbound_lead` into `tyreflow_inbound_leads` and forwarded as an
+internal lead alert to the configured TyreFlow admins.
 
 Design guidance is installed at `.agents/skills/design-taste-frontend`.

@@ -26,13 +26,15 @@ export type DialerLead = {
   all_groups: string | null;
   is_my_contact: boolean;
   is_business: boolean;
-  status: "unassigned" | "assigned" | "called" | "closed";
+  status: "unassigned" | "assigned" | "called" | "closed" | "excluded";
   assigned_to: string | null;
   assigned_name: string | null;
   assigned_at: string | null;
   last_outcome: DialerOutcome | null;
   last_note: string | null;
   last_called_at: string | null;
+  excluded_reason: string | null;
+  excluded_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -196,6 +198,7 @@ export async function supabaseStorageFetch(path: string, init: RequestInit = {})
 export async function fetchDialerLeads(callerId?: string) {
   const filters = [
     "select=*",
+    "status=neq.excluded",
     "order=id.asc",
     "limit=2500",
   ];
