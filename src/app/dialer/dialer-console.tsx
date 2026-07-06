@@ -30,6 +30,8 @@ type RecorderState = {
   mime: string;
 };
 
+type QueueFilter = "to_call" | "called" | "all" | DialerOutcome;
+
 const outcomeColors: Record<DialerOutcome, string> = {
   not_interested: "bg-rose-100 text-rose-800",
   no_answer: "bg-slate-100 text-slate-700",
@@ -38,6 +40,33 @@ const outcomeColors: Record<DialerOutcome, string> = {
   send_voice_note: "bg-violet-100 text-violet-800",
   closed: "bg-[#dff1a0] text-[#34420d]",
 };
+
+const queueFilters: QueueFilter[] = [
+  "to_call",
+  "no_answer",
+  "callback",
+  "send_whatsapp",
+  "send_voice_note",
+  "not_interested",
+  "closed",
+  "called",
+  "all",
+];
+
+const queueFilterLabels: Record<QueueFilter, string> = {
+  to_call: "To call",
+  called: "Called",
+  all: "All",
+  ...DIALER_OUTCOME_LABELS,
+};
+
+function matchesQueueFilter(lead: DialerLead, filter: QueueFilter) {
+  if (filter === "all") return true;
+  if (filter === "to_call") return lead.status === "assigned" && !lead.last_outcome;
+  if (filter === "called") return lead.status === "called" || lead.status === "closed" || Boolean(lead.last_outcome);
+  if (filter === "closed") return lead.status === "closed" || lead.last_outcome === "closed";
+  return lead.last_outcome === filter;
+}
 
 function formatPhone(phone: string) {
   return phone || "No phone";
@@ -97,6 +126,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(initialData.error);
   const [selectedOutcome, setSelectedOutcome] = useState<DialerOutcome>("no_answer");
+  const [queueFilter, setQueueFilter] = useState<QueueFilter>("to_call");
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [dueAt, setDueAt] = useState<Record<number, string>>({});
   const [activeCallLeadId, setActiveCallLeadId] = useState<number | null>(null);
@@ -111,11 +141,24 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     mime: "",
   });
 
-  const callerLeads = useMemo(() => {
+  const callerAssignedLeads = useMemo(() => {
     if (!activeCaller) return [];
+    return data.leads.filter((lead) => lead.assigned_to === activeCaller.id);
+  }, [activeCaller, data.leads]);
+
+  const queueCounts = useMemo(() => {
+    return Object.fromEntries(
+      queueFilters.map((filter) => [
+        filter,
+        callerAssignedLeads.filter((lead) => matchesQueueFilter(lead, filter)).length,
+      ]),
+    ) as Record<QueueFilter, number>;
+  }, [callerAssignedLeads]);
+
+  const callerLeads = useMemo(() => {
     const search = query.trim().toLowerCase();
-    return data.leads
-      .filter((lead) => lead.assigned_to === activeCaller.id)
+    return callerAssignedLeads
+      .filter((lead) => matchesQueueFilter(lead, queueFilter))
       .filter((lead) => {
         if (!search) return true;
         return [
@@ -130,7 +173,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           .toLowerCase()
           .includes(search);
       });
-  }, [activeCaller, data.leads, query]);
+  }, [callerAssignedLeads, query, queueFilter]);
 
   const selectedLead =
     callerLeads.find((lead) => lead.id === selectedLeadId) ||
@@ -155,12 +198,14 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     setError(null);
     try {
       const response = await fetch("/api/dialer", { cache: "no-store" });
-      const payload = await response.json();
+      const payload = (await response.json()) as DialerData & { error?: string };
       if (!response.ok) throw new Error(payload.error || "Could not load dialer.");
       setData(payload);
       if (!selectedLeadId && payload.leads?.[0]) setSelectedLeadId(payload.leads[0].id);
+      return payload;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load dialer.");
+      return null;
     } finally {
       setLoading(false);
     }
@@ -327,7 +372,15 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
       setActiveCallLeadId(null);
       setCallStartedAt(null);
       setNotes((current) => ({ ...current, [selectedLead.id]: "" }));
-      await reload();
+      const refreshed = await reload();
+      const nextLead = refreshed?.leads.find(
+        (lead) =>
+          lead.assigned_to === activeCaller.id &&
+          lead.id !== selectedLead.id &&
+          matchesQueueFilter(lead, "to_call"),
+      );
+      setQueueFilter("to_call");
+      setSelectedLeadId(nextLead?.id || null);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save outcome.");
     } finally {
@@ -362,7 +415,11 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
 
   function pickCaller(caller: DialerCaller) {
     setActiveCaller(caller);
-    const firstLead = data.leads.find((lead) => lead.assigned_to === caller.id);
+    setQueueFilter("to_call");
+    const firstLead =
+      data.leads.find(
+        (lead) => lead.assigned_to === caller.id && matchesQueueFilter(lead, "to_call"),
+      ) || data.leads.find((lead) => lead.assigned_to === caller.id);
     setSelectedLeadId(firstLead?.id || null);
   }
 
@@ -461,13 +518,13 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[460px]">
               {(activeCaller
                 ? [
-                    ["My leads", callerLeads.length],
+                    ["My leads", callerAssignedLeads.length],
+                    ["To call", queueCounts.to_call],
                     [
                       "My calls",
                       data.events.filter((event) => event.caller_id === activeCaller.id)
                         .length,
                     ],
-                    ["My tasks", openTasks.length],
                   ]
                 : [
                     ["Total", data.stats.total],
@@ -494,10 +551,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-2xl bg-[#fafbf7] p-4">
                   <p className="font-mono text-2xl font-semibold">
-                    {activeCaller
-                      ? data.leads.filter((lead) => lead.assigned_to === activeCaller.id)
-                          .length
-                      : 0}
+                    {activeCaller ? callerAssignedLeads.length : 0}
                   </p>
                   <p className="mt-1 text-black/52">Assigned</p>
                 </div>
@@ -626,6 +680,23 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   className="mt-5 w-full rounded-full border border-black/10 bg-[#fafbf7] px-4 py-3 text-sm outline-none transition focus:border-[#9fbd38] focus:bg-white"
                 />
 
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {queueFilters.map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => setQueueFilter(filter)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        queueFilter === filter
+                          ? "bg-[#151713] text-white"
+                          : "bg-[#fafbf7] text-black/60 hover:bg-black/[0.04]"
+                      }`}
+                    >
+                      {queueFilterLabels[filter]} {queueCounts[filter] || 0}
+                    </button>
+                  ))}
+                </div>
+
                 <div className="mt-5 grid max-h-[720px] gap-3 overflow-auto pr-1">
                   {!activeCaller && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
@@ -634,9 +705,9 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   )}
                   {activeCaller && callerLeads.length === 0 && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
-                      No leads assigned yet. Click Get 25 leads. If nothing is
-                      claimed, the SQL migration or CSV import may still need to
-                      run.
+                      {callerAssignedLeads.length
+                        ? `No ${queueFilterLabels[queueFilter].toLowerCase()} leads match this view.`
+                        : "No leads assigned yet. Click Get 25 leads."}
                     </p>
                   )}
                   {callerLeads.map((lead) => (
@@ -694,6 +765,27 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                         <p className="mt-2 font-mono text-lg text-black/62">
                           {formatPhone(selectedLead.phone)}
                         </p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          <span className="rounded-full bg-[#fafbf7] px-3 py-1 font-semibold text-black/60">
+                            Status: {selectedLead.status}
+                          </span>
+                          {selectedLead.last_outcome ? (
+                            <span
+                              className={`rounded-full px-3 py-1 font-semibold ${outcomeColors[selectedLead.last_outcome]}`}
+                            >
+                              {DIALER_OUTCOME_LABELS[selectedLead.last_outcome]}
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-[#edf6ca] px-3 py-1 font-semibold text-[#35470b]">
+                              Not called yet
+                            </span>
+                          )}
+                          {selectedLead.last_called_at && (
+                            <span className="rounded-full bg-[#fafbf7] px-3 py-1 font-semibold text-black/55">
+                              Last called: {humanDate(selectedLead.last_called_at)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <button
@@ -717,6 +809,18 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                     </div>
 
                     <div className="mt-5 grid gap-3 rounded-3xl border border-black/8 bg-[#fafbf7] p-4 text-sm text-black/62">
+                      {selectedLead.last_note && (
+                        <p>
+                          <span className="font-semibold text-black">Last note:</span>{" "}
+                          {selectedLead.last_note}
+                        </p>
+                      )}
+                      {selectedLeadTasks[0]?.due_at && (
+                        <p>
+                          <span className="font-semibold text-black">Open task due:</span>{" "}
+                          {humanDate(selectedLeadTasks[0].due_at)}
+                        </p>
+                      )}
                       <p>
                         <span className="font-semibold text-black">Group:</span>{" "}
                         {selectedLead.assigned_group || "Not set"}
