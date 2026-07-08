@@ -38,8 +38,9 @@ export async function GET(request: Request) {
     const all = url.searchParams.get("view") === "admin";
     const callerId = all ? undefined : caller?.id;
 
-    const [leads, tasks, events, recordings] = await Promise.all([
+    const [leads, statsLeads, tasks, events, recordings] = await Promise.all([
       fetchDialerLeads(callerId),
+      fetchDialerLeads(callerId, { includeSubscriberPhones: true }),
       fetchDialerTasks(callerId),
       fetchDialerEvents(callerId),
       fetchDialerRecordings(),
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       tasks,
       events,
       recordings,
-      stats: buildDialerStats({ leads, tasks, events, recordings }),
+      stats: buildDialerStats({ leads: statsLeads, tasks, events, recordings }),
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Could not load dialer.", 500);

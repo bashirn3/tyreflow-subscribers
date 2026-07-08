@@ -32,6 +32,15 @@ type RecorderState = {
 
 type QueueFilter = "to_call" | "called" | "all" | DialerOutcome;
 
+type SubscriberConvertForm = {
+  name: string;
+  phone: string;
+  postcode: string;
+  miles: string;
+  paid_status: "paid" | "trial";
+  notes: string;
+};
+
 const outcomeColors: Record<DialerOutcome, string> = {
   not_interested: "bg-rose-100 text-rose-800",
   no_answer: "bg-slate-100 text-slate-700",
@@ -108,6 +117,17 @@ function extFromMime(mime: string) {
   return "audio";
 }
 
+function convertFormFromLead(lead: DialerLead): SubscriberConvertForm {
+  return {
+    name: lead.display_name || lead.public_display_name || lead.saved_name || "",
+    phone: lead.phone || "",
+    postcode: "",
+    miles: "50",
+    paid_status: "trial",
+    notes: lead.last_note || "",
+  };
+}
+
 export function DialerConsole({ initialData }: DialerConsoleProps) {
   const [data, setData] = useState<DialerData>({
     leads: initialData.leads,
@@ -132,6 +152,8 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   const [activeCallLeadId, setActiveCallLeadId] = useState<number | null>(null);
   const [callStartedAt, setCallStartedAt] = useState<number | null>(null);
   const [recordingStatus, setRecordingStatus] = useState<string | null>(null);
+  const [convertLead, setConvertLead] = useState<DialerLead | null>(null);
+  const [convertForm, setConvertForm] = useState<SubscriberConvertForm | null>(null);
   const recorder = useRef<RecorderState>({
     media: null,
     stream: null,
@@ -248,6 +270,62 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   function stopCall() {
     stopRecording();
     setActiveCallLeadId(null);
+  }
+
+  function openConvertModal(lead: DialerLead) {
+    const form = convertFormFromLead(lead);
+    setConvertLead(lead);
+    setConvertForm({
+      ...form,
+      notes: notes[lead.id] || form.notes,
+    });
+    setError(null);
+    setMessage(null);
+  }
+
+  async function saveSubscriberFromLead(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!convertLead || !convertForm || !activeCaller) return;
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: convertForm.name,
+          phone: convertForm.phone,
+          postcode: convertForm.postcode,
+          miles: convertForm.miles,
+          paid_status: convertForm.paid_status,
+          notes: convertForm.notes,
+          active: true,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Could not add subscriber.");
+
+      setMessage(`${payload.subscriber?.name || convertForm.name} added as subscriber.`);
+      setConvertLead(null);
+      setConvertForm(null);
+
+      const refreshed = await reload();
+      const nextLead = refreshed?.leads.find(
+        (lead) =>
+          lead.assigned_to === activeCaller.id &&
+          lead.id !== convertLead.id &&
+          matchesQueueFilter(lead, "to_call"),
+      );
+      setQueueFilter("to_call");
+      setSelectedLeadId(nextLead?.id || null);
+    } catch (convertError) {
+      setError(convertError instanceof Error ? convertError.message : "Could not add subscriber.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function startRecording(lead: DialerLead) {
@@ -796,6 +874,13 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                         >
                           {activeCallLeadId === selectedLead.id ? "Call active" : "Start call + record"}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openConvertModal(selectedLead)}
+                          className="rounded-full bg-[#dff1a0] px-5 py-3 text-sm font-semibold text-[#34420d] transition hover:brightness-[0.97]"
+                        >
+                          Add as subscriber
+                        </button>
                         {activeCallLeadId === selectedLead.id && (
                           <button
                             type="button"
@@ -978,6 +1063,143 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           </section>
         </section>
       </div>
+
+      {convertLead && convertForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4">
+          <div className="max-h-[92vh] w-full max-w-xl overflow-auto rounded-[28px] bg-white p-5 shadow-[0_28px_90px_rgba(0,0,0,0.22)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-[#60721f]">Dialer conversion</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                  Add subscriber
+                </h2>
+                <p className="mt-2 text-sm text-black/55">
+                  This adds the caller to TyreFlow subscribers. After saving, the phone is filtered out of dialer queues.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setConvertLead(null);
+                  setConvertForm(null);
+                }}
+                className="rounded-full border border-black/10 px-3 py-2 text-sm font-medium transition hover:bg-black/[0.03]"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={saveSubscriberFromLead} className="mt-5 grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-medium">
+                  Name
+                  <input
+                    required
+                    value={convertForm.name}
+                    onChange={(event) =>
+                      setConvertForm((current) =>
+                        current ? { ...current, name: event.target.value } : current,
+                      )
+                    }
+                    className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium">
+                  Phone number
+                  <input
+                    required
+                    value={convertForm.phone}
+                    onChange={(event) =>
+                      setConvertForm((current) =>
+                        current ? { ...current, phone: event.target.value } : current,
+                      )
+                    }
+                    className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  />
+                </label>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+                  Base postcode
+                  <input
+                    required
+                    placeholder="e.g. SL2 1AF"
+                    value={convertForm.postcode}
+                    onChange={(event) =>
+                      setConvertForm((current) =>
+                        current ? { ...current, postcode: event.target.value.toUpperCase() } : current,
+                      )
+                    }
+                    className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 uppercase outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  />
+                </label>
+
+                <label className="grid gap-2 text-sm font-medium">
+                  Miles
+                  <input
+                    required
+                    min="1"
+                    type="number"
+                    value={convertForm.miles}
+                    onChange={(event) =>
+                      setConvertForm((current) =>
+                        current ? { ...current, miles: event.target.value } : current,
+                      )
+                    }
+                    className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  />
+                </label>
+              </div>
+
+              <label className="grid gap-2 text-sm font-medium">
+                Payment status
+                <select
+                  value={convertForm.paid_status}
+                  onChange={(event) =>
+                    setConvertForm((current) =>
+                      current
+                        ? {
+                            ...current,
+                            paid_status: event.target.value as SubscriberConvertForm["paid_status"],
+                          }
+                        : current,
+                    )
+                  }
+                  className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                >
+                  <option value="trial">Trial / not paid yet</option>
+                  <option value="paid">Paid</option>
+                </select>
+              </label>
+
+              <label className="grid gap-2 text-sm font-medium">
+                Notes
+                <textarea
+                  rows={4}
+                  value={convertForm.notes}
+                  onChange={(event) =>
+                    setConvertForm((current) =>
+                      current ? { ...current, notes: event.target.value } : current,
+                    )
+                  }
+                  placeholder="Coverage agreement, price, caller notes..."
+                  className="resize-none rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="rounded-full bg-[#151713] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2a2e24] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {saving ? "Adding..." : "Add subscriber"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
