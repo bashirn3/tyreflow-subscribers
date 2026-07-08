@@ -21,8 +21,9 @@ export type DialerInitialData = {
 
 export async function getDialerInitialData(): Promise<DialerInitialData> {
   try {
-    const [leads, tasks, events, recordings] = await Promise.all([
+    const [leads, statsLeads, tasks, events, recordings] = await Promise.all([
       fetchDialerLeads(),
+      fetchDialerLeads(undefined, { includeSubscriberPhones: true }),
       fetchDialerTasks(),
       fetchDialerEvents(),
       fetchDialerRecordings(),
@@ -33,7 +34,7 @@ export async function getDialerInitialData(): Promise<DialerInitialData> {
       tasks,
       events,
       recordings,
-      stats: buildDialerStats({ leads, tasks, events, recordings }),
+      stats: buildDialerStats({ leads: statsLeads, tasks, events, recordings }),
       error: null,
     };
   } catch (error) {
