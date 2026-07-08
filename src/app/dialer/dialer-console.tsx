@@ -81,6 +81,16 @@ function formatPhone(phone: string) {
   return phone || "No phone";
 }
 
+function phoneDigits(value: string | null | undefined) {
+  return String(value || "").replace(/[^0-9]/g, "");
+}
+
+function displayNameIsPhone(lead: DialerLead) {
+  const displayDigits = phoneDigits(lead.display_name);
+  const phone = phoneDigits(lead.phone);
+  return Boolean(displayDigits && phone && displayDigits === phone);
+}
+
 function humanDate(value: string | null) {
   if (!value) return "";
   return new Date(value).toLocaleString("en-GB", {
@@ -201,6 +211,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     callerLeads.find((lead) => lead.id === selectedLeadId) ||
     callerLeads[0] ||
     null;
+  const selectedLeadNameIsPhone = selectedLead ? displayNameIsPhone(selectedLead) : false;
 
   const selectedLeadTasks = selectedLead
     ? data.tasks.filter((task) => task.lead_id === selectedLead.id && task.status === "open")
@@ -518,10 +529,10 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           </div>
 
           <div className="mt-10">
-            <h1 className="text-5xl font-semibold tracking-[-0.06em] text-[#151713] sm:text-6xl">
+            <h1 className="text-4xl font-semibold tracking-[-0.06em] text-[#151713] sm:text-5xl">
               Who is calling?
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-black/58">
+            <p className="mt-5 max-w-xl text-sm leading-6 text-black/58">
               Pick your name to load your own lead queue, tasks, recordings, and
               call notes.
             </p>
@@ -545,7 +556,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   onClick={() => pickCaller(caller)}
                   className="rounded-3xl border border-black/8 bg-[#fafbf7] p-5 text-left transition hover:border-[#9fbd38]/60 hover:bg-white"
                 >
-                  <span className="block text-2xl font-semibold tracking-[-0.03em] text-[#151713]">
+                  <span className="block text-xl font-semibold tracking-[-0.03em] text-[#151713]">
                     {caller.name}
                   </span>
                   <span className="mt-1 block text-sm text-black/52">
@@ -584,7 +595,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   Subscribers
                 </Link>
               </div>
-              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.055em] text-[#151713] sm:text-5xl">
+              <h1 className="mt-5 max-w-3xl text-3xl font-semibold tracking-[-0.055em] text-[#151713] sm:text-4xl">
                 Lead calling workspace
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-6 text-black/58">
@@ -611,7 +622,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   ]
               ).map(([label, value]) => (
                 <div key={label} className="rounded-2xl border border-black/8 bg-[#fafbf7] p-4">
-                  <p className="font-mono text-3xl font-semibold text-black">{value}</p>
+                  <p className="font-mono text-2xl font-semibold text-black">{value}</p>
                   <p className="mt-1 text-sm text-black/52">{label}</p>
                 </div>
               ))}
@@ -623,18 +634,18 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           <aside className="grid gap-5 lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
               <p className="text-sm font-medium text-[#60721f]">Caller session</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+              <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em]">
                 {activeCaller?.name || "No caller"}
               </h2>
               <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-2xl bg-[#fafbf7] p-4">
-                  <p className="font-mono text-2xl font-semibold">
+                  <p className="font-mono text-xl font-semibold">
                     {activeCaller ? callerAssignedLeads.length : 0}
                   </p>
                   <p className="mt-1 text-black/52">Assigned</p>
                 </div>
                 <div className="rounded-2xl bg-[#fafbf7] p-4">
-                  <p className="font-mono text-2xl font-semibold">
+                  <p className="font-mono text-xl font-semibold">
                     {activeCaller
                       ? data.tasks.filter(
                           (task) =>
@@ -683,7 +694,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-[#60721f]">Follow-ups</p>
-                  <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em]">
+                  <h2 className="mt-1 text-lg font-semibold tracking-[-0.035em]">
                     Open tasks
                   </h2>
                 </div>
@@ -738,7 +749,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                     <p className="text-sm font-medium text-[#60721f]">
                       {activeCaller ? `${activeCaller.name}'s leads` : "Choose a caller"}
                     </p>
-                    <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                    <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em]">
                       Call queue
                     </h2>
                   </div>
@@ -837,10 +848,16 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                       <div>
                         <p className="text-sm font-medium text-[#60721f]">Lead details</p>
-                        <h2 className="mt-1 text-3xl font-semibold tracking-[-0.045em]">
-                          {selectedLead.display_name}
-                        </h2>
-                        <p className="mt-2 font-mono text-lg text-black/62">
+                        {!selectedLeadNameIsPhone && (
+                          <h2 className="mt-1 text-2xl font-semibold tracking-[-0.045em]">
+                            {selectedLead.display_name}
+                          </h2>
+                        )}
+                        <p
+                          className={`font-mono text-black/62 ${
+                            selectedLeadNameIsPhone ? "mt-1 text-lg" : "mt-2 text-base"
+                          }`}
+                        >
                           {formatPhone(selectedLead.phone)}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs">
@@ -865,19 +882,19 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap justify-end gap-2 sm:ml-auto sm:pt-7">
                         <button
                           type="button"
                           onClick={() => startCall(selectedLead)}
                           disabled={!activeCaller || activeCallLeadId === selectedLead.id}
-                          className="rounded-full bg-[#151713] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2a2e24] disabled:cursor-not-allowed disabled:opacity-45"
+                          className="rounded-full bg-[#151713] px-3.5 py-2 text-xs font-medium text-white transition hover:bg-[#2a2e24] disabled:cursor-not-allowed disabled:opacity-45"
                         >
                           {activeCallLeadId === selectedLead.id ? "Call active" : "Start call + record"}
                         </button>
                         <button
                           type="button"
                           onClick={() => openConvertModal(selectedLead)}
-                          className="rounded-full bg-[#dff1a0] px-5 py-3 text-sm font-semibold text-[#34420d] transition hover:brightness-[0.97]"
+                          className="rounded-full bg-[#dff1a0] px-3.5 py-2 text-xs font-semibold text-[#34420d] transition hover:brightness-[0.97]"
                         >
                           Add as subscriber
                         </button>
