@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f7f3;
+  --background: #eef1e7;
   --foreground: #151713;
 }
 
@@ -10,13 +10,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
@@ -28,6 +21,12 @@ body {
 button,
 input {
   font: inherit;
+}
+
+input,
+select,
+textarea {
+  font-size: 16px;
 }
 
 ::selection {

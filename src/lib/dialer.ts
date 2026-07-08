@@ -203,7 +203,10 @@ export async function supabaseStorageFetch(path: string, init: RequestInit = {})
   return response;
 }
 
-export async function fetchDialerLeads(callerId?: string) {
+export async function fetchDialerLeads(
+  callerId?: string,
+  options: { includeSubscriberPhones?: boolean } = {},
+) {
   const filters = [
     "select=*",
     "status=neq.excluded",
@@ -216,7 +219,9 @@ export async function fetchDialerLeads(callerId?: string) {
   const leads = await supabaseFetch<DialerLead[]>(
     `/rest/v1/tyreflow_dialer_leads?${filters.join("&")}`,
   );
-  const subscriberPhones = await fetchTyreFlowSubscriberPhones();
+  const subscriberPhones = options.includeSubscriberPhones
+    ? new Set<string>()
+    : await fetchTyreFlowSubscriberPhones();
 
   return leads.filter((lead) => {
     const digits = phoneDigits(lead.phone);

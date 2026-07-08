@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     const [leads, tasks, events, recordings] = await Promise.all([
-      fetchDialerLeads(),
+      fetchDialerLeads(undefined, { includeSubscriberPhones: true }),
       fetchDialerTasks(),
       fetchDialerEvents(),
       fetchDialerRecordings(),

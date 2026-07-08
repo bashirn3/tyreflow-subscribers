@@ -2,7 +2,7 @@ import { Subscriber, SubscriberConsole } from "./subscriber-console";
 
 export const dynamic = "force-dynamic";
 
-async function getInitialSubscribers(): Promise<Subscriber[]> {
+export async function getInitialSubscribers(): Promise<Subscriber[]> {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
