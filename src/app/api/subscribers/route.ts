@@ -284,27 +284,45 @@ export async function POST(request: Request) {
 
     let data;
     try {
-      data = await supabaseFetch(
-        "/rest/v1/tyreflow_subscribers?on_conflict=phone",
-        {
-          method: "POST",
-          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-          body: JSON.stringify(row),
-        },
-      );
+      data = body.id
+        ? await supabaseFetch(
+            `/rest/v1/tyreflow_subscribers?id=eq.${body.id}`,
+            {
+              method: "PATCH",
+              headers: { Prefer: "return=representation" },
+              body: JSON.stringify(row),
+            },
+          )
+        : await supabaseFetch(
+            "/rest/v1/tyreflow_subscribers?on_conflict=phone",
+            {
+              method: "POST",
+              headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+              body: JSON.stringify(row),
+            },
+          );
     } catch (error) {
       if (!isMissingColumnError(error)) throw error;
       const legacyRow: Record<string, unknown> = { ...row };
       delete legacyRow.paid_status;
       delete legacyRow.notes;
-      data = await supabaseFetch(
-        "/rest/v1/tyreflow_subscribers?on_conflict=phone",
-        {
-          method: "POST",
-          headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-          body: JSON.stringify(legacyRow),
-        },
-      );
+      data = body.id
+        ? await supabaseFetch(
+            `/rest/v1/tyreflow_subscribers?id=eq.${body.id}`,
+            {
+              method: "PATCH",
+              headers: { Prefer: "return=representation" },
+              body: JSON.stringify(legacyRow),
+            },
+          )
+        : await supabaseFetch(
+            "/rest/v1/tyreflow_subscribers?on_conflict=phone",
+            {
+              method: "POST",
+              headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+              body: JSON.stringify(legacyRow),
+            },
+          );
     }
 
     const savedSubscriber = data?.[0] || row;

@@ -34,32 +34,32 @@ export function AdminConsole() {
 
   if (!data) {
     return (
-      <main className="flex min-h-[100dvh] items-center justify-center bg-[#f6f7f3] px-4 py-10 text-[#151713] sm:px-6">
+      <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-4 py-10 text-[#151713] sm:px-6">
         <form
           onSubmit={loadAdmin}
-          className="w-full max-w-lg rounded-[32px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.22)] sm:p-8"
+          className="w-full max-w-lg rounded-[30px] border border-black/8 bg-white p-6 shadow-[0_24px_80px_rgba(28,34,20,0.14)] sm:p-8"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
               TyreFlow Admin
             </p>
             <Link
               href="/dialer"
-              className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
             >
               Caller login
             </Link>
           </div>
 
-          <h1 className="mt-14 text-5xl font-semibold tracking-[-0.06em] text-white">
+          <h1 className="mt-10 text-5xl font-semibold tracking-[-0.06em] text-[#151713]">
             Admin PIN
           </h1>
-          <p className="mt-5 text-base leading-7 text-white/68">
+          <p className="mt-5 text-base leading-7 text-black/58">
             Enter the admin PIN to view team progress, call activity, notes, and
             recordings.
           </p>
 
-          <label className="mt-8 grid gap-2 text-sm font-medium text-white/78">
+          <label className="mt-8 grid gap-2 text-sm font-medium text-black/70">
             PIN
             <input
               value={pin}
@@ -67,13 +67,13 @@ export function AdminConsole() {
               type="password"
               inputMode="numeric"
               autoComplete="current-password"
-              className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 text-white outline-none transition focus:border-[#b8d45f]"
+              className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 text-black outline-none transition focus:border-[#9fbd38] focus:bg-white"
               placeholder="Enter PIN"
             />
           </label>
 
           {error && (
-            <p className="mt-4 rounded-2xl bg-red-500/12 px-4 py-3 text-sm text-red-100">
+            <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </p>
           )}
@@ -81,7 +81,7 @@ export function AdminConsole() {
           <button
             type="submit"
             disabled={loading || !pin.trim()}
-            className="mt-5 w-full rounded-full bg-[#dff1a0] px-5 py-3 text-sm font-semibold text-[#34420d] transition hover:bg-[#d2e98a] disabled:cursor-not-allowed disabled:opacity-45"
+            className="mt-5 w-full rounded-full bg-[#151713] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#2a2e24] disabled:cursor-not-allowed disabled:opacity-45"
           >
             {loading ? "Opening..." : "Open admin"}
           </button>
@@ -91,22 +91,22 @@ export function AdminConsole() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[#f6f7f3] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-6">
-        <section className="rounded-[30px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.18)] sm:p-8">
+    <main className="min-h-[calc(100dvh-4rem)] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-5">
+        <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)] sm:p-6">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
             <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
                 TyreFlow Admin
               </p>
-              <h1 className="mt-8 text-5xl font-semibold tracking-[-0.06em] text-white sm:text-6xl">
+              <h1 className="mt-5 text-4xl font-semibold tracking-[-0.055em] text-[#151713] sm:text-5xl">
                 Dialer admin
               </h1>
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/dialer"
-                className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+                className="rounded-full border border-black/10 px-4 py-2 text-sm text-black/58 transition hover:border-black/20 hover:text-black"
               >
                 Caller login
               </Link>
@@ -116,7 +116,7 @@ export function AdminConsole() {
                   setData(null);
                   setPin("");
                 }}
-                className="rounded-full border border-white/15 px-4 py-2 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
+                className="rounded-full border border-black/10 px-4 py-2 text-sm text-black/58 transition hover:border-black/20 hover:text-black"
               >
                 Lock
               </button>

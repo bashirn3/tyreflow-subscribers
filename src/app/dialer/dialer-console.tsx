@@ -425,25 +425,25 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
 
   if (!activeCaller) {
     return (
-      <main className="flex min-h-[100dvh] items-center justify-center bg-[#f6f7f3] px-4 py-10 text-[#151713] sm:px-6">
-        <section className="w-full max-w-2xl rounded-[32px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.22)] sm:p-8">
+      <main className="flex min-h-[calc(100dvh-4rem)] items-center justify-center px-4 py-10 text-[#151713] sm:px-6">
+        <section className="w-full max-w-2xl rounded-[30px] border border-black/8 bg-white p-6 shadow-[0_24px_80px_rgba(28,34,20,0.14)] sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
               TyreFlow Dialer
             </p>
             <Link
               href="/"
-              className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
             >
               Subscribers
             </Link>
           </div>
 
-          <div className="mt-14">
-            <h1 className="text-5xl font-semibold tracking-[-0.06em] text-white sm:text-6xl">
+          <div className="mt-10">
+            <h1 className="text-5xl font-semibold tracking-[-0.06em] text-[#151713] sm:text-6xl">
               Who is calling?
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-7 text-white/68">
+            <p className="mt-5 max-w-xl text-base leading-7 text-black/58">
               Pick your name to load your own lead queue, tasks, recordings, and
               call notes.
             </p>
@@ -465,12 +465,12 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   key={caller.id}
                   type="button"
                   onClick={() => pickCaller(caller)}
-                  className="rounded-3xl border border-white/10 bg-white/[0.05] p-5 text-left transition hover:border-[#b8d45f]/50 hover:bg-white/[0.08]"
+                  className="rounded-3xl border border-black/8 bg-[#fafbf7] p-5 text-left transition hover:border-[#9fbd38]/60 hover:bg-white"
                 >
-                  <span className="block text-2xl font-semibold tracking-[-0.03em]">
+                  <span className="block text-2xl font-semibold tracking-[-0.03em] text-[#151713]">
                     {caller.name}
                   </span>
-                  <span className="mt-1 block text-sm text-white/55">
+                  <span className="mt-1 block text-sm text-black/52">
                     {assignedCount} assigned lead(s)
                   </span>
                 </button>
@@ -480,7 +480,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
 
           <Link
             href="/dialer/admin"
-            className="mt-6 inline-flex rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/62 transition hover:border-white/30 hover:text-white"
+            className="mt-6 inline-flex rounded-full border border-black/10 px-4 py-2 text-sm font-medium text-black/58 transition hover:border-black/20 hover:text-black"
           >
             Admin dashboard
           </Link>
@@ -490,26 +490,26 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[#f6f7f3] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-6">
-        <section className="rounded-[30px] bg-[#11140f] p-6 text-white shadow-[0_24px_80px_rgba(28,34,20,0.18)] sm:p-8">
+    <main className="min-h-[calc(100dvh-4rem)] px-4 py-6 text-[#151713] sm:px-6 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-5">
+        <section className="rounded-[28px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)] sm:p-6">
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
             <div>
               <div className="flex flex-wrap items-center gap-3">
-                <p className="text-sm font-medium uppercase tracking-[0.18em] text-[#b8d45f]">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
                   TyreFlow Dialer
                 </p>
                 <Link
                   href="/"
-                  className="rounded-full border border-white/15 px-3 py-1 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+                  className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
                 >
                   Subscribers
                 </Link>
               </div>
-              <h1 className="mt-8 max-w-3xl text-5xl font-semibold tracking-[-0.06em] text-white sm:text-6xl">
+              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.055em] text-[#151713] sm:text-5xl">
                 Lead calling workspace
               </h1>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-white/68">
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-black/58">
                 Pick a caller, claim 25 leads, record calls, save notes, and track
                 callbacks or WhatsApp follow-ups without touching live messaging.
               </p>
@@ -532,18 +532,18 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                     ["Open tasks", data.stats.openTasks],
                   ]
               ).map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                  <p className="font-mono text-3xl font-semibold text-white">{value}</p>
-                  <p className="mt-1 text-sm text-white/62">{label}</p>
+                <div key={label} className="rounded-2xl border border-black/8 bg-[#fafbf7] p-4">
+                  <p className="font-mono text-3xl font-semibold text-black">{value}</p>
+                  <p className="mt-1 text-sm text-black/52">{label}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="grid gap-6 lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)]">
+        <section className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="grid gap-5 lg:sticky lg:top-24 lg:self-start">
+            <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
               <p className="text-sm font-medium text-[#60721f]">Caller session</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
                 {activeCaller?.name || "No caller"}
@@ -601,7 +601,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
               )}
             </div>
 
-            <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)]">
+            <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-[#60721f]">Follow-ups</p>
@@ -653,8 +653,8 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             </div>
           </aside>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)]">
-              <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
+          <section className="grid gap-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,1fr)]">
+              <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                   <div>
                     <p className="text-sm font-medium text-[#60721f]">
@@ -677,7 +677,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search name, phone, group, notes"
-                  className="mt-5 w-full rounded-full border border-black/10 bg-[#fafbf7] px-4 py-3 text-sm outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  className="mt-4 w-full rounded-full border border-black/10 bg-[#fafbf7] px-4 py-2.5 text-sm outline-none transition focus:border-[#9fbd38] focus:bg-white"
                 />
 
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -697,7 +697,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                   ))}
                 </div>
 
-                <div className="mt-5 grid max-h-[720px] gap-3 overflow-auto pr-1">
+                <div className="mt-4 grid max-h-[680px] gap-2.5 overflow-auto pr-1">
                   {!activeCaller && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
                       Pick Saalah, Arslan, or Ayaz to see assigned leads.
@@ -715,7 +715,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                       key={lead.id}
                       type="button"
                       onClick={() => setSelectedLeadId(lead.id)}
-                      className={`rounded-2xl border p-4 text-left transition ${
+                    className={`rounded-2xl border p-3.5 text-left transition ${
                         selectedLead?.id === lead.id
                           ? "border-[#9fbd38] bg-[#f8fbeb]"
                           : "border-black/8 bg-[#fafbf7] hover:border-black/15 hover:bg-white"
@@ -749,7 +749,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
+              <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
                 {!selectedLead ? (
                   <div className="rounded-2xl bg-[#fafbf7] p-6 text-sm text-black/58">
                     Select a lead to start calling.
@@ -997,7 +997,7 @@ export function AdminView({
 
   return (
     <section className="grid gap-6">
-      <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
+      <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-medium text-[#60721f]">Admin dashboard</p>
@@ -1031,8 +1031,8 @@ export function AdminView({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
           <p className="text-sm font-medium text-[#60721f]">Callers</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
             Saalah, Arslan, Ayaz
@@ -1064,7 +1064,7 @@ export function AdminView({
           </div>
         </div>
 
-        <div className="rounded-[28px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(33,41,24,0.08)] sm:p-6">
+        <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
           <p className="text-sm font-medium text-[#60721f]">Recent activity</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
             Call log
