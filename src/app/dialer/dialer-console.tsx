@@ -81,6 +81,17 @@ function formatPhone(phone: string) {
   return phone || "No phone";
 }
 
+function formatLeadListPhone(phone: string) {
+  const digits = phoneDigits(phone);
+  const local = digits.startsWith("44") && digits.length === 12 ? `0${digits.slice(2)}` : digits;
+
+  if (local.startsWith("07") && local.length === 11) {
+    return `${local.slice(0, 5)} ${local.slice(5, 8)} ${local.slice(8)}`;
+  }
+
+  return formatPhone(phone);
+}
+
 function phoneDigits(value: string | null | undefined) {
   return String(value || "").replace(/[^0-9]/g, "");
 }
@@ -99,6 +110,11 @@ function humanDate(value: string | null) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function leadListUpdatedAt(lead: DialerLead) {
+  if (!lead.last_outcome && !lead.last_note) return "";
+  return humanDate(lead.last_called_at || lead.updated_at);
 }
 
 function defaultDueAt(outcome: DialerOutcome) {
@@ -799,42 +815,53 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                         : "No leads assigned yet. Click Get 25 leads."}
                     </p>
                   )}
-                  {callerLeads.map((lead) => (
-                    <button
-                      key={lead.id}
-                      type="button"
-                      onClick={() => setSelectedLeadId(lead.id)}
-                    className={`rounded-2xl border p-3.5 text-left transition ${
-                        selectedLead?.id === lead.id
-                          ? "border-[#9fbd38] bg-[#f8fbeb]"
-                          : "border-black/8 bg-[#fafbf7] hover:border-black/15 hover:bg-white"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold tracking-[-0.02em]">{lead.display_name}</p>
-                          <p className="mt-1 font-mono text-sm text-black/58">{formatPhone(lead.phone)}</p>
-                        </div>
-                        <span className="rounded-full bg-white px-2.5 py-1 text-xs text-black/55">
-                          {lead.status}
-                        </span>
-                      </div>
-                      <p className="mt-3 line-clamp-2 text-sm text-black/50">
-                        {lead.assigned_group || "No group"} · {lead.groups_count} group(s)
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        {lead.is_business && <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-[#34420d]">Business</span>}
-                        {lead.last_outcome && (
-                          <span className={`rounded-full px-2.5 py-1 ${outcomeColors[lead.last_outcome]}`}>
-                            {DIALER_OUTCOME_LABELS[lead.last_outcome]}
+                  {callerLeads.map((lead) => {
+                    const updatedAt = leadListUpdatedAt(lead);
+
+                    return (
+                      <button
+                        key={lead.id}
+                        type="button"
+                        onClick={() => setSelectedLeadId(lead.id)}
+                        className={`rounded-2xl border p-3.5 text-left transition ${
+                          selectedLead?.id === lead.id
+                            ? "border-[#9fbd38] bg-[#f8fbeb]"
+                            : "border-black/8 bg-[#fafbf7] hover:border-black/15 hover:bg-white"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold tracking-[-0.02em]">{lead.display_name}</p>
+                            <p className="mt-1 font-mono text-sm text-black/58">
+                              {formatLeadListPhone(lead.phone)}
+                            </p>
+                            {updatedAt && (
+                              <p className="mt-1 text-xs text-black/42">
+                                Updated {updatedAt}
+                              </p>
+                            )}
+                          </div>
+                          <span className="rounded-full bg-white px-2.5 py-1 text-xs text-black/55">
+                            {lead.status}
                           </span>
-                        )}
-                        <span className="rounded-full bg-white px-2.5 py-1 text-black/52">
-                          {leadEventCount(lead.id)} call(s)
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+                        </div>
+                        <p className="mt-3 line-clamp-2 text-sm text-black/50">
+                          {lead.assigned_group || "No group"} · {lead.groups_count} group(s)
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                          {lead.is_business && <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-[#34420d]">Business</span>}
+                          {lead.last_outcome && (
+                            <span className={`rounded-full px-2.5 py-1 ${outcomeColors[lead.last_outcome]}`}>
+                              {DIALER_OUTCOME_LABELS[lead.last_outcome]}
+                            </span>
+                          )}
+                          <span className="rounded-full bg-white px-2.5 py-1 text-black/52">
+                            {leadEventCount(lead.id)} call(s)
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
