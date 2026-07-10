@@ -84,6 +84,10 @@ export const DIALER_CALLERS: DialerCaller[] = [
   { id: "ayaz", name: "Ayaz" },
 ];
 
+export const PUBLIC_DIALER_CALLERS = DIALER_CALLERS.filter(
+  (caller) => caller.id !== "ayaz",
+);
+
 export const DIALER_OUTCOME_LABELS: Record<DialerOutcome, string> = {
   not_interested: "Not interested",
   no_answer: "No answer",

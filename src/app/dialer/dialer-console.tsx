@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   DIALER_CALLERS,
   DIALER_OUTCOME_LABELS,
+  PUBLIC_DIALER_CALLERS,
   TASK_OUTCOMES,
   taskTypeForOutcome,
   type DialerCaller,
@@ -17,6 +18,9 @@ import type { DialerInitialData } from "@/lib/dialer-initial-data";
 
 type DialerConsoleProps = {
   initialData: DialerInitialData;
+  initialCallerId?: string;
+  allowSubscriberConversion?: boolean;
+  showNavigationLinks?: boolean;
 };
 
 export type DialerData = Omit<DialerInitialData, "error">;
@@ -154,7 +158,22 @@ function convertFormFromLead(lead: DialerLead): SubscriberConvertForm {
   };
 }
 
-export function DialerConsole({ initialData }: DialerConsoleProps) {
+function firstLeadForCaller(leads: DialerLead[], caller: DialerCaller) {
+  return (
+    leads.find((lead) => lead.assigned_to === caller.id && matchesQueueFilter(lead, "to_call")) ||
+    leads.find((lead) => lead.assigned_to === caller.id) ||
+    null
+  );
+}
+
+export function DialerConsole({
+  initialData,
+  initialCallerId,
+  allowSubscriberConversion = true,
+  showNavigationLinks = true,
+}: DialerConsoleProps) {
+  const initialCaller =
+    DIALER_CALLERS.find((caller) => caller.id === initialCallerId) || null;
   const [data, setData] = useState<DialerData>({
     leads: initialData.leads,
     tasks: initialData.tasks,
@@ -162,9 +181,11 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
     recordings: initialData.recordings,
     stats: initialData.stats,
   });
-  const [activeCaller, setActiveCaller] = useState<DialerCaller | null>(null);
+  const [activeCaller, setActiveCaller] = useState<DialerCaller | null>(initialCaller);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(
-    initialData.leads[0]?.id || null,
+    (initialCaller
+      ? firstLeadForCaller(initialData.leads, initialCaller)?.id
+      : initialData.leads[0]?.id) || null,
   );
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
@@ -300,6 +321,8 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   }
 
   function openConvertModal(lead: DialerLead) {
+    if (!allowSubscriberConversion) return;
+
     const form = convertFormFromLead(lead);
     setConvertLead(lead);
     setConvertForm({
@@ -330,6 +353,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           paid_status: convertForm.paid_status,
           notes: convertForm.notes,
           active: true,
+          created_by_caller_id: activeCaller.id,
         }),
       });
       const payload = await response.json();
@@ -521,11 +545,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
   function pickCaller(caller: DialerCaller) {
     setActiveCaller(caller);
     setQueueFilter("to_call");
-    const firstLead =
-      data.leads.find(
-        (lead) => lead.assigned_to === caller.id && matchesQueueFilter(lead, "to_call"),
-      ) || data.leads.find((lead) => lead.assigned_to === caller.id);
-    setSelectedLeadId(firstLead?.id || null);
+    setSelectedLeadId(firstLeadForCaller(data.leads, caller)?.id || null);
   }
 
   if (!activeCaller) {
@@ -536,12 +556,14 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
               TyreFlow Dialer
             </p>
-            <Link
-              href="/"
-              className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
-            >
-              Subscribers
-            </Link>
+            {showNavigationLinks && (
+              <Link
+                href="/"
+                className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
+              >
+                Subscribers
+              </Link>
+            )}
           </div>
 
           <div className="mt-10">
@@ -561,7 +583,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
           )}
 
           <div className="mt-8 grid gap-3">
-            {DIALER_CALLERS.map((caller) => {
+            {PUBLIC_DIALER_CALLERS.map((caller) => {
               const assignedCount = data.leads.filter(
                 (lead) => lead.assigned_to === caller.id,
               ).length;
@@ -583,12 +605,14 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
             })}
           </div>
 
-          <Link
-            href="/dialer/admin"
-            className="mt-6 inline-flex rounded-full border border-black/10 px-4 py-2 text-sm font-medium text-black/58 transition hover:border-black/20 hover:text-black"
-          >
-            Admin dashboard
-          </Link>
+          {showNavigationLinks && (
+            <Link
+              href="/dialer/admin"
+              className="mt-6 inline-flex rounded-full border border-black/10 px-4 py-2 text-sm font-medium text-black/58 transition hover:border-black/20 hover:text-black"
+            >
+              Admin dashboard
+            </Link>
+          )}
         </section>
       </main>
     );
@@ -604,12 +628,14 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                 <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#60721f]">
                   TyreFlow Dialer
                 </p>
-                <Link
-                  href="/"
-                  className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
-                >
-                  Subscribers
-                </Link>
+                {showNavigationLinks && (
+                  <Link
+                    href="/"
+                    className="rounded-full border border-black/10 px-3 py-1.5 text-xs text-black/58 transition hover:border-black/20 hover:text-black"
+                  >
+                    Subscribers
+                  </Link>
+                )}
               </div>
               <h1 className="mt-5 max-w-3xl text-3xl font-semibold tracking-[-0.055em] text-[#151713] sm:text-4xl">
                 Lead calling workspace
@@ -805,7 +831,7 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                 <div className="mt-4 grid max-h-[680px] gap-2.5 overflow-auto pr-1">
                   {!activeCaller && (
                     <p className="rounded-2xl bg-[#fafbf7] p-4 text-sm text-black/58">
-                      Pick Saalah, Arslan, or Ayaz to see assigned leads.
+                      Pick a caller to see assigned leads.
                     </p>
                   )}
                   {activeCaller && callerLeads.length === 0 && (
@@ -918,13 +944,15 @@ export function DialerConsole({ initialData }: DialerConsoleProps) {
                         >
                           {activeCallLeadId === selectedLead.id ? "Call active" : "Start call + record"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openConvertModal(selectedLead)}
-                          className="rounded-full bg-[#dff1a0] px-3.5 py-2 text-xs font-semibold text-[#34420d] transition hover:brightness-[0.97]"
-                        >
-                          Add as subscriber
-                        </button>
+                        {allowSubscriberConversion && (
+                          <button
+                            type="button"
+                            onClick={() => openConvertModal(selectedLead)}
+                            className="rounded-full bg-[#dff1a0] px-3.5 py-2 text-xs font-semibold text-[#34420d] transition hover:brightness-[0.97]"
+                          >
+                            Add as subscriber
+                          </button>
+                        )}
                         {activeCallLeadId === selectedLead.id && (
                           <button
                             type="button"

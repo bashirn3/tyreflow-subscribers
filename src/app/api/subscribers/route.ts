@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeCaller } from "@/lib/dialer";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,9 @@ type SubscriberPayload = {
   paid_status?: "paid" | "trial";
   notes?: string;
   coverages?: CoveragePayload[];
+  created_by_caller_id?: string | null;
+  created_by_caller_name?: string | null;
+  created_from?: string | null;
 };
 
 type CoveragePayload = {
@@ -97,25 +101,63 @@ function isMissingTableError(error: unknown) {
 }
 
 function isMissingColumnError(error: unknown) {
-  return error instanceof Error && error.message.includes("Could not find");
+  return (
+    error instanceof Error &&
+    (error.message.includes("Could not find") || error.message.includes("does not exist"))
+  );
 }
 
-async function fetchSubscriberRows() {
+async function fetchSubscriberRows(ownerCallerId?: string) {
+  const ownershipFilter = ownerCallerId
+    ? `&created_by_caller_id=eq.${encodeURIComponent(ownerCallerId)}`
+    : "";
+
   try {
-    return await supabaseFetch(
-      "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc",
+    const rows = await supabaseFetch(
+      `/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at,created_by_caller_id,created_by_caller_name,created_from${ownershipFilter}&order=created_at.desc`,
     );
+    return { rows, ownershipWarning: null };
   } catch (error) {
     if (!isMissingColumnError(error)) throw error;
+    const missingDetail = error instanceof Error ? error.message : "";
+
+    if (ownerCallerId) {
+      return {
+        rows: [],
+        ownershipWarning:
+          "Subscriber ownership columns are missing. Run supabase/tyreflow-subscriber-ownership-schema.sql.",
+      };
+    }
+
+    if (missingDetail.includes("created_by_caller")) {
+      const rows = await supabaseFetch(
+        "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc",
+      );
+      return {
+        rows: (rows || []).map((row: SubscriberPayload) => ({
+          ...row,
+          created_by_caller_id: null,
+          created_by_caller_name: null,
+          created_from: null,
+        })),
+        ownershipWarning: null,
+      };
+    }
 
     const rows = await supabaseFetch(
       "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,created_at&order=created_at.desc",
     );
-    return (rows || []).map((row: SubscriberPayload) => ({
-      ...row,
-      paid_status: "trial",
-      notes: "Agreed £50",
-    }));
+    return {
+      rows: (rows || []).map((row: SubscriberPayload) => ({
+        ...row,
+        paid_status: "trial",
+        notes: "Agreed £50",
+        created_by_caller_id: null,
+        created_by_caller_name: null,
+        created_from: null,
+      })),
+      ownershipWarning: null,
+    };
   }
 }
 
@@ -196,9 +238,15 @@ async function normalizeCoverage(input: CoveragePayload) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const subscribers = await fetchSubscriberRows();
+    const url = new URL(request.url);
+    const ownerParam =
+      url.searchParams.get("created_by_caller_id") || url.searchParams.get("caller_id");
+    const ownerCaller = ownerParam ? normalizeCaller(ownerParam) : null;
+    if (ownerParam && !ownerCaller) return jsonError("Unknown subscriber owner.");
+
+    const { rows: subscribers, ownershipWarning } = await fetchSubscriberRows(ownerCaller?.id);
     const coverages = await fetchCoverageRows();
     const coverageBySubscriber = new Map<number, unknown[]>();
 
@@ -237,7 +285,7 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json({ subscribers: rows });
+    return NextResponse.json({ subscribers: rows, ownershipWarning });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Fetch failed", 500);
   }
@@ -252,6 +300,9 @@ export async function POST(request: Request) {
     const miles = Number(body.miles);
     const paidStatus = body.paid_status === "paid" ? "paid" : "trial";
     const notes = String(body.notes || "Agreed £50").trim() || "Agreed £50";
+    const ownerCaller = body.created_by_caller_id
+      ? normalizeCaller(body.created_by_caller_id)
+      : null;
     const coverageInputs =
       body.coverages && body.coverages.length
         ? body.coverages
@@ -262,6 +313,9 @@ export async function POST(request: Request) {
     if (!postcode) return jsonError("Postcode is required.");
     if (!Number.isFinite(miles) || miles <= 0) {
       return jsonError("Miles must be a positive number.");
+    }
+    if (body.created_by_caller_id && !ownerCaller) {
+      return jsonError("Unknown subscriber owner.");
     }
 
     const { lat, lon } = await geocodePostcode(postcode);
@@ -280,6 +334,9 @@ export async function POST(request: Request) {
       active: body.active ?? true,
       paid_status: paidStatus,
       notes,
+      created_by_caller_id: ownerCaller?.id || null,
+      created_by_caller_name: ownerCaller?.name || null,
+      created_from: ownerCaller ? "dialer" : null,
     };
 
     let data;
@@ -303,9 +360,19 @@ export async function POST(request: Request) {
           );
     } catch (error) {
       if (!isMissingColumnError(error)) throw error;
+      const missingDetail = error instanceof Error ? error.message : "";
+      if (ownerCaller && missingDetail.includes("created_by_caller")) {
+        throw new Error(
+          "Subscriber ownership columns are missing. Run supabase/tyreflow-subscriber-ownership-schema.sql.",
+        );
+      }
+
       const legacyRow: Record<string, unknown> = { ...row };
       delete legacyRow.paid_status;
       delete legacyRow.notes;
+      delete legacyRow.created_by_caller_id;
+      delete legacyRow.created_by_caller_name;
+      delete legacyRow.created_from;
       data = body.id
         ? await supabaseFetch(
             `/rest/v1/tyreflow_subscribers?id=eq.${body.id}`,
