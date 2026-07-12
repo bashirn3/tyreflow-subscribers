@@ -11,7 +11,7 @@ export async function getInitialSubscribers(): Promise<Subscriber[]> {
 
   try {
     let response = await fetch(
-      `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc`,
+      `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at,created_by_caller_id,created_by_caller_name,created_from&order=created_at.desc`,
       {
         headers: {
           apikey: supabaseKey,
@@ -20,6 +20,19 @@ export async function getInitialSubscribers(): Promise<Subscriber[]> {
         cache: "no-store",
       },
     );
+
+    if (!response.ok) {
+      response = await fetch(
+        `${supabaseUrl}/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,miles,lat,lon,active,paid_status,notes,created_at&order=created_at.desc`,
+        {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+          cache: "no-store",
+        },
+      );
+    }
 
     if (!response.ok) {
       response = await fetch(
@@ -39,6 +52,9 @@ export async function getInitialSubscribers(): Promise<Subscriber[]> {
       ...subscriber,
       paid_status: subscriber.paid_status || "trial",
       notes: subscriber.notes || "Agreed £50",
+      created_by_caller_id: subscriber.created_by_caller_id || null,
+      created_by_caller_name: subscriber.created_by_caller_name || null,
+      created_from: subscriber.created_from || null,
     }));
 
     const coverageResponse = await fetch(
