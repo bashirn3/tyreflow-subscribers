@@ -14,6 +14,9 @@ export type Subscriber = {
   paid_status: "paid" | "trial";
   notes: string;
   created_at: string;
+  created_by_caller_id?: string | null;
+  created_by_caller_name?: string | null;
+  created_from?: string | null;
   coverages?: Coverage[];
 };
 
@@ -97,6 +100,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [selectedSubscriber, setSelectedSubscriber] = useState<Subscriber | null>(null);
   const [editingSubscriberId, setEditingSubscriberId] = useState<number | null>(null);
+  const [nowMs] = useState(() => new Date().getTime());
 
   const activeCount = useMemo(
     () => subscribers.filter((subscriber) => subscriber.active).length,
@@ -122,6 +126,8 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
         String(subscriber.miles),
         subscriber.paid_status,
         subscriber.notes,
+        subscriber.created_by_caller_name,
+        subscriber.created_from,
         ...(subscriber.coverages || []).map(formatCoverage),
       ]
         .join(" ")
@@ -154,6 +160,36 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
       hour: "2-digit",
       minute: "2-digit",
     });
+  }
+
+  function subscriberCreator(subscriber: Subscriber) {
+    return subscriber.created_by_caller_name || (subscriber.created_from ? "Dashboard" : "—");
+  }
+
+  function subscriberAgeDays(subscriber: Subscriber) {
+    const createdAt = new Date(subscriber.created_at).getTime();
+    if (!Number.isFinite(createdAt)) return 0;
+    const diffMs = nowMs - createdAt;
+    return Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
+  }
+
+  function subscriberAgePillClass(days: number) {
+    if (days >= 14) return "bg-rose-100 text-rose-800";
+    if (days >= 10) return "bg-amber-100 text-amber-800";
+    return "bg-[#dff1a0] text-[#34420d]";
+  }
+
+  function subscriberAgePill(subscriber: Subscriber) {
+    const days = subscriberAgeDays(subscriber);
+    return (
+      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${subscriberAgePillClass(days)}`}>
+        {days}d
+      </span>
+    );
+  }
+
+  function primaryCoverageLabel(subscriber: Subscriber) {
+    return subscriberCoverages(subscriber).map(formatCoverage).join(", ");
   }
 
   function subscriberCoverages(subscriber: Subscriber) {
@@ -616,12 +652,9 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                     <table className="w-full border-collapse text-left text-sm">
                       <thead className="bg-[#eef1e7] text-xs uppercase tracking-[0.12em] text-black/48">
                         <tr>
-                          <th className="px-4 py-3 font-semibold">Name</th>
-                          <th className="px-4 py-3 font-semibold">Phone</th>
-                          <th className="px-4 py-3 font-semibold">Base</th>
+                          <th className="px-4 py-3 font-semibold">Subscriber</th>
                           <th className="px-4 py-3 font-semibold">Coverage</th>
-                          <th className="px-4 py-3 font-semibold">Payment</th>
-                          <th className="px-4 py-3 font-semibold">Notes</th>
+                          <th className="px-4 py-3 font-semibold">Added</th>
                           <th className="px-4 py-3 font-semibold">Status</th>
                           <th className="px-4 py-3 text-right font-semibold">Actions</th>
                         </tr>
@@ -629,40 +662,29 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                       <tbody className="divide-y divide-black/6 bg-white">
                         {filteredSubscribers.map((subscriber) => (
                           <tr key={subscriber.id} className="align-middle">
-                            <td className="px-4 py-4 font-medium">{subscriber.name}</td>
-                            <td className="px-4 py-4 font-mono text-black/62">
-                              +{subscriber.phone}
-                            </td>
-                            <td className="px-4 py-4 font-medium">
-                              {subscriber.postcode}
+                            <td className="px-4 py-4">
+                              <p className="font-medium">{subscriber.name}</p>
+                              <p className="mt-1 font-mono text-xs text-black/50">
+                                +{subscriber.phone}
+                              </p>
                             </td>
                             <td className="px-4 py-4 text-black/62">
-                              <div className="flex max-w-md flex-wrap gap-1.5">
-                                {subscriberCoverages(subscriber).map((coverage, index) => (
-                                  <span
-                                    key={`${coverage.coverage_type}-${coverage.code}-${index}`}
-                                    className="rounded-full bg-white px-2.5 py-1 text-xs text-black/62"
-                                  >
-                                    {formatCoverage(coverage)}
-                                  </span>
-                                ))}
-                              </div>
+                              <p className="max-w-xs truncate font-medium text-black/68" title={primaryCoverageLabel(subscriber)}>
+                                {primaryCoverageLabel(subscriber)}
+                              </p>
+                              <p className="mt-1 text-xs text-black/42">
+                                Base {subscriber.postcode}
+                              </p>
                             </td>
                             <td className="px-4 py-4">
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                                  subscriber.paid_status === "paid"
-                                    ? "bg-[#dff1a0] text-[#34420d]"
-                                    : "bg-amber-100 text-amber-800"
-                                }`}
-                              >
-                                {subscriber.paid_status === "paid" ? "Paid" : "Trial"}
-                              </span>
-                            </td>
-                            <td className="max-w-44 px-4 py-4 text-black/62">
-                              <span className="block truncate" title={subscriber.notes}>
-                                {subscriber.notes || "Agreed £50"}
-                              </span>
+                              <div className="flex flex-col items-start gap-1.5">
+                                <span className="text-sm font-medium text-black/70">
+                                  {subscriberCreator(subscriber)}
+                                </span>
+                                <span className="flex items-center gap-1 text-xs text-black/45">
+                                  Added {subscriberAgePill(subscriber)} ago
+                                </span>
+                              </div>
                             </td>
                             <td className="px-4 py-4">
                               <span
@@ -766,17 +788,9 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                             Base {subscriber.postcode}, default {subscriber.miles} miles
                           </p>
                           <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                                subscriber.paid_status === "paid"
-                                  ? "bg-[#dff1a0] text-[#34420d]"
-                                  : "bg-amber-100 text-amber-800"
-                              }`}
-                            >
-                              {subscriber.paid_status === "paid" ? "Paid" : "Trial"}
-                            </span>
-                            <span className="text-sm text-black/55">
-                              {subscriber.notes || "Agreed £50"}
+                            {subscriberAgePill(subscriber)}
+                            <span className="rounded-full bg-white px-2.5 py-1 text-xs text-black/55">
+                              Added by {subscriberCreator(subscriber)}
                             </span>
                           </div>
                           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -915,6 +929,20 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                     }`}
                   >
                     {selectedSubscriber.paid_status === "paid" ? "Paid" : "Trial"}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#fafbf7] p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-black/42">
+                  Added
+                </p>
+                <p className="mt-2 text-lg font-semibold">
+                  {subscriberCreator(selectedSubscriber)}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {subscriberAgePill(selectedSubscriber)}
+                  <span className="text-sm text-black/52">
+                    {formatDate(selectedSubscriber.created_at)}
                   </span>
                 </div>
               </div>
