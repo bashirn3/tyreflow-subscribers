@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { normalizeCaller } from "@/lib/dialer";
+import { normalizeUkSubscriberPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
@@ -61,10 +62,6 @@ function requireConfig() {
   if (!supabaseUrl || !supabaseKey) {
     throw new Error("Missing SUPABASE_URL and SUPABASE_ANON_KEY env vars.");
   }
-}
-
-function normalizePhone(value: unknown) {
-  return String(value || "").replace(/[^0-9]/g, "");
 }
 
 function normalizeCode(value: unknown) {
@@ -295,7 +292,12 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as SubscriberPayload;
     const name = String(body.name || "").trim();
-    const phone = normalizePhone(body.phone);
+    let phone = "";
+    try {
+      phone = normalizeUkSubscriberPhone(body.phone);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Invalid phone number.");
+    }
     const postcode = String(body.postcode || "").trim().toUpperCase();
     const miles = Number(body.miles);
     const paidStatus = body.paid_status === "paid" ? "paid" : "trial";

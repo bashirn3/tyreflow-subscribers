@@ -7,14 +7,18 @@ import {
   DIALER_OUTCOME_LABELS,
   PUBLIC_DIALER_CALLERS,
   TASK_OUTCOMES,
+  dialerLeadIntent,
+  isHighIntentLead,
   taskTypeForOutcome,
   type DialerCaller,
   type DialerCallEvent,
+  type DialerAdminInsights,
   type DialerLead,
   type DialerOutcome,
   type DialerTask,
 } from "@/lib/dialer";
 import type { DialerInitialData } from "@/lib/dialer-initial-data";
+import { normalizeUkSubscriberPhone } from "@/lib/phone";
 
 type DialerConsoleProps = {
   initialData: DialerInitialData;
@@ -23,7 +27,9 @@ type DialerConsoleProps = {
   showNavigationLinks?: boolean;
 };
 
-export type DialerData = Omit<DialerInitialData, "error">;
+export type DialerData = Omit<DialerInitialData, "error"> & {
+  insights?: DialerAdminInsights;
+};
 
 type RecorderState = {
   media: MediaRecorder | null;
@@ -34,7 +40,7 @@ type RecorderState = {
   mime: string;
 };
 
-type QueueFilter = "to_call" | "called" | "all" | DialerOutcome;
+type QueueFilter = "to_call" | "high_intent" | "called" | "all" | DialerOutcome;
 
 type SubscriberConvertForm = {
   name: string;
@@ -56,6 +62,7 @@ const outcomeColors: Record<DialerOutcome, string> = {
 
 const queueFilters: QueueFilter[] = [
   "to_call",
+  "high_intent",
   "no_answer",
   "callback",
   "send_whatsapp",
@@ -68,6 +75,7 @@ const queueFilters: QueueFilter[] = [
 
 const queueFilterLabels: Record<QueueFilter, string> = {
   to_call: "To call",
+  high_intent: "High intent",
   called: "Called",
   all: "All",
   ...DIALER_OUTCOME_LABELS,
@@ -76,6 +84,7 @@ const queueFilterLabels: Record<QueueFilter, string> = {
 function matchesQueueFilter(lead: DialerLead, filter: QueueFilter) {
   if (filter === "all") return true;
   if (filter === "to_call") return lead.status === "assigned" && !lead.last_outcome;
+  if (filter === "high_intent") return isHighIntentLead(lead);
   if (filter === "called") return lead.status === "called" || lead.status === "closed" || Boolean(lead.last_outcome);
   if (filter === "closed") return lead.status === "closed" || lead.last_outcome === "closed";
   return lead.last_outcome === filter;
@@ -342,12 +351,13 @@ export function DialerConsole({
     setMessage(null);
 
     try {
+      const phone = normalizeUkSubscriberPhone(convertForm.phone);
       const response = await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: convertForm.name,
-          phone: convertForm.phone,
+          phone,
           postcode: convertForm.postcode,
           miles: convertForm.miles,
           paid_status: convertForm.paid_status,
@@ -843,6 +853,7 @@ export function DialerConsole({
                   )}
                   {callerLeads.map((lead) => {
                     const updatedAt = leadListUpdatedAt(lead);
+                    const intent = dialerLeadIntent(lead);
 
                     return (
                       <button
@@ -876,6 +887,11 @@ export function DialerConsole({
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs">
                           {lead.is_business && <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-[#34420d]">Business</span>}
+                          {intent.tier === "high" && (
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-900">
+                              High intent
+                            </span>
+                          )}
                           {lead.last_outcome && (
                             <span className={`rounded-full px-2.5 py-1 ${outcomeColors[lead.last_outcome]}`}>
                               {DIALER_OUTCOME_LABELS[lead.last_outcome]}
@@ -898,6 +914,17 @@ export function DialerConsole({
                   </div>
                 ) : (
                   <>
+                    {(() => {
+                      const intent = dialerLeadIntent(selectedLead);
+                      return intent.tier === "high" ? (
+                        <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                          <p className="font-semibold">High intent lead</p>
+                          <p className="mt-1 text-amber-800/80">
+                            {intent.reasons.join(" · ")}
+                          </p>
+                        </div>
+                      ) : null;
+                    })()}
                     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                       <div>
                         <p className="text-sm font-medium text-[#60721f]">Lead details</p>
@@ -1187,6 +1214,16 @@ export function DialerConsole({
                         current ? { ...current, phone: event.target.value } : current,
                       )
                     }
+                    onBlur={() =>
+                      setConvertForm((current) => {
+                        if (!current) return current;
+                        try {
+                          return { ...current, phone: normalizeUkSubscriberPhone(current.phone) };
+                        } catch {
+                          return current;
+                        }
+                      })
+                    }
                     className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
                   />
                 </label>
@@ -1324,6 +1361,104 @@ export function AdminView({
           ))}
         </div>
       </div>
+
+      {data.insights && (
+        <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div>
+              <p className="text-sm font-medium text-[#60721f]">
+                Subscriber intelligence
+              </p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
+                Groups and locations that convert
+              </h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="rounded-2xl bg-[#fafbf7] px-3 py-2">
+                <p className="font-mono text-xl font-semibold">
+                  {data.insights.activeSubscribers}
+                </p>
+                <p className="text-xs text-black/45">Active</p>
+              </div>
+              <div className="rounded-2xl bg-[#edf6ca] px-3 py-2">
+                <p className="font-mono text-xl font-semibold text-[#34420d]">
+                  {data.insights.matchedSubscribers}
+                </p>
+                <p className="text-xs text-black/45">Matched</p>
+              </div>
+              <div className="rounded-2xl bg-[#fafbf7] px-3 py-2">
+                <p className="font-mono text-xl font-semibold">
+                  {data.insights.unmatchedSubscribers}
+                </p>
+                <p className="text-xs text-black/45">No lead row</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 xl:grid-cols-3">
+            <div className="rounded-2xl border border-black/8 bg-[#fafbf7] p-4">
+              <p className="text-sm font-semibold">Top source groups</p>
+              <div className="mt-3 grid gap-2">
+                {data.insights.topGroups.length === 0 && (
+                  <p className="text-sm text-black/50">No subscriber group matches yet.</p>
+                )}
+                {data.insights.topGroups.map((row) => (
+                  <div key={row.group} className="rounded-xl bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-sm font-medium">{row.group}</p>
+                      <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-xs font-semibold text-[#34420d]">
+                        {row.subscribers}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-black/45">
+                      {row.sampleSubscribers.join(", ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/8 bg-[#fafbf7] p-4">
+              <p className="text-sm font-semibold">Top postcodes</p>
+              <div className="mt-3 grid gap-2">
+                {data.insights.topOutcodes.map((row) => (
+                  <div key={row.outcode} className="rounded-xl bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium">{row.outcode}</p>
+                        <p className="mt-1 text-xs text-black/45">{row.region}</p>
+                      </div>
+                      <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-black/60">
+                        {row.subscribers}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-black/45">
+                      {row.sampleSubscribers.join(", ")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/8 bg-[#fafbf7] p-4">
+              <p className="text-sm font-semibold">Top regions</p>
+              <div className="mt-3 grid gap-2">
+                {data.insights.topRegions.map((row) => (
+                  <div
+                    key={row.region}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white p-3"
+                  >
+                    <p className="text-sm font-medium">{row.region}</p>
+                    <span className="rounded-full bg-[#edf6ca] px-2.5 py-1 text-xs font-semibold text-[#34420d]">
+                      {row.subscribers}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
         <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">

@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "import:dialer-leads": "node scripts/import-dialer-leads.mjs",
-    "suppress:dialer-breakdown": "node scripts/apply-dialer-breakdown-exclusions.mjs"
+    "suppress:dialer-breakdown": "node scripts/apply-dialer-breakdown-exclusions.mjs",
+    "backfill:subscriber-phones": "node scripts/backfill-subscriber-phones.mjs",
+    "dialer:high-intent": "node scripts/apply-dialer-high-intent.mjs",
+    "export:undialed-no-answer": "node scripts/export-undialed-no-answer.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

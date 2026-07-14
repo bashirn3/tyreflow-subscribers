@@ -1,6 +1,9 @@
 import {
+  buildSubscriberInsights,
   buildDialerStats,
+  fetchActiveSubscribersForInsights,
   fetchDialerEvents,
+  fetchDialerLeadsForInsights,
   fetchDialerLeads,
   fetchDialerRecordings,
   fetchDialerTasks,
@@ -20,11 +23,13 @@ export async function POST(request: Request) {
       return jsonError("Invalid admin PIN.", 403);
     }
 
-    const [leads, tasks, events, recordings] = await Promise.all([
+    const [leads, tasks, events, recordings, activeSubscribers, allLeads] = await Promise.all([
       fetchDialerLeads(undefined, { includeSubscriberPhones: true }),
       fetchDialerTasks(),
       fetchDialerEvents(),
       fetchDialerRecordings(),
+      fetchActiveSubscribersForInsights(),
+      fetchDialerLeadsForInsights(),
     ]);
 
     return Response.json({
@@ -33,6 +38,10 @@ export async function POST(request: Request) {
       events,
       recordings,
       stats: buildDialerStats({ leads, tasks, events, recordings }),
+      insights: buildSubscriberInsights({
+        subscribers: activeSubscribers,
+        leads: allLeads,
+      }),
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "Could not load admin.", 500);

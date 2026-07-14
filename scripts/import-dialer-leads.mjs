@@ -91,9 +91,6 @@ function exclusionReason(lead, subscriberPhones = new Set()) {
   if (subscriberPhones.has(phone)) return "Existing TyreFlow subscriber";
 
   const groupText = [lead.assigned_group, lead.all_groups].join(" ");
-  if (/tyres?\s+anywhere\s+live/i.test(groupText)) {
-    return "Tyres Anywhere Live group";
-  }
   if (NATIONAL_MOBILE_TYRES_24HR_RE.test(groupText)) {
     return "National Mobile Tyres 24HR group";
   }

@@ -66,6 +66,7 @@ supabase/tyreflow-subscriber-coverages-schema.sql
 supabase/tyreflow-subscriber-payment-notes-schema.sql
 supabase/tyreflow-dialer-schema.sql
 supabase/tyreflow-dialer-breakdown-exclusions-schema.sql
+supabase/tyreflow-dialer-high-intent-schema.sql
 supabase/tyreflow-inbound-leads-schema.sql
 ```
 
@@ -86,6 +87,21 @@ subscriber. New rows default to `trial` with `Agreed £50`.
   coverage.
 - Delete removes the row from Supabase.
 - Pause flips `active` to false without deleting the row.
+- Subscriber phone inputs are normalized to E.164-style phone numbers. UK mobile
+  inputs such as `07872 571826`, `+07872571826`, `447872571826`, and
+  `00447872571826` are saved as `+447872571826`.
+
+Dry-run the existing subscriber phone backfill with:
+
+```bash
+npm run backfill:subscriber-phones
+```
+
+Apply it with:
+
+```bash
+npm run backfill:subscriber-phones -- --apply
+```
 
 ## TyreFlow dialer
 
@@ -122,6 +138,20 @@ Apply the breakdown/recovery exclusions to already-imported leads with:
 
 ```bash
 npm run suppress:dialer-breakdown
+```
+
+Safe `Tyres Anywhere` leads are treated as high intent. Restore existing rows
+that were previously excluded only because of `Tyres Anywhere Live` with:
+
+```bash
+npm run dialer:high-intent -- --apply
+```
+
+Export a local CSV of not-yet-dialed and `No answer` leads, excluding `Tyres
+Anywhere`, with:
+
+```bash
+npm run export:undialed-no-answer
 ```
 
 Recording notes:
