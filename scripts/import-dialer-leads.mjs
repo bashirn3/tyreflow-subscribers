@@ -78,6 +78,8 @@ function number(value) {
 }
 
 const HARD_BLOCKED_DIALER_PHONES = new Set(["447354247247", "447476190546"]);
+const NATIONAL_MOBILE_TYRES_24HR_RE = /national\s+mobile\s+tyres\s*24\s*hr/i;
+const BREAKDOWN_RECOVERY_RE = /\b(break\s*down|breakdown|recovery|road\s*side\s+assistance|roadside\s+assistance)\b/i;
 
 function phoneDigits(value) {
   return String(value || "").replace(/[^0-9]/g, "");
@@ -92,8 +94,13 @@ function exclusionReason(lead, subscriberPhones = new Set()) {
   if (/tyres?\s+anywhere\s+live/i.test(groupText)) {
     return "Tyres Anywhere Live group";
   }
+  if (NATIONAL_MOBILE_TYRES_24HR_RE.test(groupText)) {
+    return "National Mobile Tyres 24HR group";
+  }
 
   const nameText = [lead.display_name, lead.saved_name, lead.public_display_name].join(" ");
+  const leadText = [nameText, groupText].join(" ");
+  if (BREAKDOWN_RECOVERY_RE.test(leadText)) return "Breakdown/recovery contact";
   if (/m\s*25|logistics/i.test(nameText)) return "M25/admin-style contact";
   if (/tyres/i.test(nameText)) return "Tyres in contact name";
 

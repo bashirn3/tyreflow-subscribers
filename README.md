@@ -65,6 +65,7 @@ Run the existing subscriber schema first, then run:
 supabase/tyreflow-subscriber-coverages-schema.sql
 supabase/tyreflow-subscriber-payment-notes-schema.sql
 supabase/tyreflow-dialer-schema.sql
+supabase/tyreflow-dialer-breakdown-exclusions-schema.sql
 supabase/tyreflow-inbound-leads-schema.sql
 ```
 
@@ -107,12 +108,21 @@ The import upserts by `Phone Number` into `tyreflow_dialer_leads`.
 Dialer exclusions:
 
 - Leads in the `Tyres Anywhere Live` group are marked `excluded`.
+- Leads in the `NATIONAL MOBILE TYRES 24HR` group are marked `excluded`.
+- Leads whose contact name or groups contain `breakdown`, `recovery`, or
+  `roadside assistance` are marked `excluded`.
 - Leads with `M25`, `logistics`, or `Tyres` in their contact name are marked
   `excluded`.
 - Hard-filtered phones `+447354247247`, `+447476190546`, and all numbers already
   in `tyreflow_subscribers` are excluded from dialer queues.
 - Excluded leads stay in Supabase for audit/recovery, but they are hidden from
   dialer queues and are never claimed by the 25-lead assignment RPC.
+
+Apply the breakdown/recovery exclusions to already-imported leads with:
+
+```bash
+npm run suppress:dialer-breakdown
+```
 
 Recording notes:
 
