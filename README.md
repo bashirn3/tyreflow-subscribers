@@ -68,6 +68,7 @@ supabase/tyreflow-dialer-schema.sql
 supabase/tyreflow-dialer-breakdown-exclusions-schema.sql
 supabase/tyreflow-dialer-high-intent-schema.sql
 supabase/tyreflow-dialer-arslan-high-intent-schema.sql
+supabase/tyreflow-dialer-no-answer-requeue-schema.sql
 supabase/tyreflow-inbound-leads-schema.sql
 ```
 
@@ -154,6 +155,9 @@ Anywhere`, with:
 ```bash
 npm run export:undialed-no-answer
 ```
+
+`No answer` outcomes are released back into the unclaimed pool. The claim RPC
+keeps those rows at the back of future claim batches.
 
 Recording notes:
 
