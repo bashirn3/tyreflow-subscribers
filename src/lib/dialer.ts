@@ -78,6 +78,36 @@ export type DialerRecording = {
   created_at: string;
 };
 
+export type DialerAdminInsights = {
+  activeSubscribers: number;
+  matchedSubscribers: number;
+  unmatchedSubscribers: number;
+  topGroups: Array<{
+    group: string;
+    subscribers: number;
+    sampleSubscribers: string[];
+  }>;
+  topOutcodes: Array<{
+    outcode: string;
+    region: string;
+    subscribers: number;
+    sampleSubscribers: string[];
+  }>;
+  topRegions: Array<{
+    region: string;
+    subscribers: number;
+  }>;
+};
+
+type SubscriberInsightRow = {
+  id: number;
+  name: string;
+  phone: string;
+  postcode: string | null;
+  active: boolean;
+  created_at: string;
+};
+
 export const DIALER_CALLERS: DialerCaller[] = [
   { id: "saleh", name: "Saalah" },
   { id: "arslan", name: "Arslan" },
@@ -110,6 +140,7 @@ export const DIALER_HARD_BLOCKED_PHONES = new Set([
 ]);
 const NATIONAL_MOBILE_TYRES_24HR_RE = /national\s+mobile\s+tyres\s*24\s*hr/i;
 const BREAKDOWN_RECOVERY_RE = /\b(break\s*down|breakdown|recovery|road\s*side\s+assistance|roadside\s+assistance)\b/i;
+const TYRES_ANYWHERE_RE = /tyres?\s+anywhere/i;
 
 export function phoneDigits(value: unknown) {
   return String(value || "").replace(/[^0-9]/g, "");
@@ -136,6 +167,39 @@ export function dialerLeadSuppressionReason(lead: Pick<
   }
 
   return null;
+}
+
+export function dialerLeadIntent(lead: Pick<
+  DialerLead,
+  "assigned_group" | "all_groups" | "groups_count"
+>) {
+  const reasons: string[] = [];
+  const groupText = [lead.assigned_group, lead.all_groups].join(" ");
+  const groupsCount = Number(lead.groups_count) || 0;
+
+  if (TYRES_ANYWHERE_RE.test(groupText)) {
+    reasons.push("Tyres Anywhere");
+  }
+  if (groupsCount >= 2) {
+    reasons.push(`${groupsCount} groups`);
+  }
+
+  const score =
+    (TYRES_ANYWHERE_RE.test(groupText) ? 70 : 0) +
+    Math.min(30, Math.max(0, groupsCount - 1) * 10);
+
+  return {
+    tier: reasons.length ? "high" : "standard",
+    score,
+    reasons,
+  };
+}
+
+export function isHighIntentLead(lead: Pick<
+  DialerLead,
+  "assigned_group" | "all_groups" | "groups_count"
+>) {
+  return dialerLeadIntent(lead).tier === "high";
 }
 
 export function taskTypeForOutcome(outcome: DialerOutcome): DialerTaskType | null {
@@ -252,14 +316,16 @@ export async function fetchDialerLeads(
     ? new Set<string>()
     : await fetchTyreFlowSubscriberPhones();
 
-  return leads.filter((lead) => {
-    const digits = phoneDigits(lead.phone);
-    return (
-      !DIALER_HARD_BLOCKED_PHONES.has(digits) &&
-      !subscriberPhones.has(digits) &&
-      !dialerLeadSuppressionReason(lead)
-    );
-  });
+  return leads
+    .filter((lead) => {
+      const digits = phoneDigits(lead.phone);
+      return (
+        !DIALER_HARD_BLOCKED_PHONES.has(digits) &&
+        !subscriberPhones.has(digits) &&
+        !dialerLeadSuppressionReason(lead)
+      );
+    })
+    .sort((a, b) => dialerLeadIntent(b).score - dialerLeadIntent(a).score || a.id - b.id);
 }
 
 export async function fetchTyreFlowSubscriberPhones() {
@@ -314,6 +380,222 @@ export async function fetchDialerRecordings(leadId?: number) {
   return supabaseFetch<DialerRecording[]>(
     `/rest/v1/tyreflow_dialer_recordings?${filters.join("&")}`,
   );
+}
+
+export async function fetchActiveSubscribersForInsights() {
+  return supabaseFetch<SubscriberInsightRow[]>(
+    "/rest/v1/tyreflow_subscribers?select=id,name,phone,postcode,active,created_at&active=eq.true&limit=20000",
+  );
+}
+
+export async function fetchDialerLeadsForInsights() {
+  return supabaseFetch<DialerLead[]>(
+    "/rest/v1/tyreflow_dialer_leads?select=*&limit=20000",
+  );
+}
+
+function postcodeOutcode(value: unknown) {
+  const postcode = String(value || "").trim().toUpperCase().replace(/\s+/g, " ");
+  if (!postcode) return "Unknown";
+  const firstPart = postcode.split(" ")[0];
+  const match = firstPart.match(/^[A-Z]{1,2}\d[A-Z\d]?/);
+  return match?.[0] || firstPart || "Unknown";
+}
+
+function postcodeArea(outcode: string) {
+  return outcode.match(/^[A-Z]+/)?.[0] || "UNKNOWN";
+}
+
+function regionForPostcode(outcode: string) {
+  const area = postcodeArea(outcode);
+  const regions: Record<string, string> = {
+    B: "West Midlands",
+    CV: "West Midlands",
+    DY: "West Midlands",
+    WS: "West Midlands",
+    WV: "West Midlands",
+    WR: "West Midlands",
+    M: "North West",
+    L: "North West",
+    BL: "North West",
+    CH: "North West",
+    CW: "North West",
+    FY: "North West",
+    OL: "North West",
+    PR: "North West",
+    SK: "North West",
+    WA: "North West",
+    WN: "North West",
+    BB: "North West",
+    BD: "Yorkshire",
+    DN: "Yorkshire",
+    HD: "Yorkshire",
+    HG: "Yorkshire",
+    HX: "Yorkshire",
+    HU: "Yorkshire",
+    LS: "Yorkshire",
+    S: "Yorkshire",
+    WF: "Yorkshire",
+    YO: "Yorkshire",
+    NE: "North East",
+    DH: "North East",
+    DL: "North East",
+    SR: "North East",
+    TS: "North East",
+    E: "London",
+    EC: "London",
+    N: "London",
+    NW: "London",
+    SE: "London",
+    SW: "London",
+    W: "London",
+    WC: "London",
+    BR: "South East",
+    CR: "South East",
+    CT: "South East",
+    DA: "South East",
+    GU: "South East",
+    KT: "South East",
+    ME: "South East",
+    MK: "South East",
+    OX: "South East",
+    RG: "South East",
+    RH: "South East",
+    SL: "South East",
+    SM: "South East",
+    SO: "South East",
+    TN: "South East",
+    BN: "South East",
+    AL: "East of England",
+    CB: "East of England",
+    CM: "East of England",
+    CO: "East of England",
+    IG: "East of England",
+    IP: "East of England",
+    LU: "East of England",
+    NR: "East of England",
+    PE: "East of England",
+    RM: "East of England",
+    SG: "East of England",
+    SS: "East of England",
+    BS: "South West",
+    EX: "South West",
+    GL: "South West",
+    PL: "South West",
+    SN: "South West",
+    SP: "South West",
+    TA: "South West",
+    TQ: "South West",
+    TR: "South West",
+    BA: "South West",
+    BH: "South West",
+    DT: "South West",
+    DE: "East Midlands",
+    LE: "East Midlands",
+    LN: "East Midlands",
+    NG: "East Midlands",
+    NN: "East Midlands",
+    CA: "North West",
+    LA: "North West",
+    HR: "West Midlands",
+    ST: "West Midlands",
+  };
+
+  return regions[area] || "Other / unknown";
+}
+
+function splitGroups(lead: Pick<DialerLead, "assigned_group" | "all_groups">) {
+  const raw = [lead.assigned_group, lead.all_groups].filter(Boolean).join("\n");
+  return Array.from(
+    new Set(
+      raw
+        .split(/\r?\n|[|;]+|,\s+(?=[A-Z0-9])/)
+        .map((group) => group.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function incrementInsight(
+  map: Map<string, { count: number; samples: Set<string> }>,
+  key: string,
+  sample: string,
+) {
+  const current = map.get(key) || { count: 0, samples: new Set<string>() };
+  current.count += 1;
+  if (current.samples.size < 3) current.samples.add(sample);
+  map.set(key, current);
+}
+
+export function buildSubscriberInsights(input: {
+  subscribers: SubscriberInsightRow[];
+  leads: DialerLead[];
+}): DialerAdminInsights {
+  const leadByPhone = new Map<string, DialerLead>();
+  for (const lead of input.leads) {
+    const phone = phoneDigits(lead.phone);
+    if (!phone) continue;
+    const existing = leadByPhone.get(phone);
+    if (!existing || Number(lead.groups_count || 0) > Number(existing.groups_count || 0)) {
+      leadByPhone.set(phone, lead);
+    }
+  }
+
+  const groupCounts = new Map<string, { count: number; samples: Set<string> }>();
+  const outcodeCounts = new Map<string, { count: number; samples: Set<string> }>();
+  const regionCounts = new Map<string, number>();
+  let matchedSubscribers = 0;
+
+  for (const subscriber of input.subscribers) {
+    const sample = subscriber.name || subscriber.phone;
+    const phone = phoneDigits(subscriber.phone);
+    const lead = leadByPhone.get(phone);
+
+    if (lead) {
+      matchedSubscribers += 1;
+      for (const group of splitGroups(lead)) {
+        incrementInsight(groupCounts, group, sample);
+      }
+    }
+
+    const outcode = postcodeOutcode(subscriber.postcode);
+    const region = regionForPostcode(outcode);
+    incrementInsight(outcodeCounts, outcode, sample);
+    regionCounts.set(region, (regionCounts.get(region) || 0) + 1);
+  }
+
+  const topGroups = Array.from(groupCounts.entries())
+    .map(([group, value]) => ({
+      group,
+      subscribers: value.count,
+      sampleSubscribers: Array.from(value.samples),
+    }))
+    .sort((a, b) => b.subscribers - a.subscribers || a.group.localeCompare(b.group))
+    .slice(0, 8);
+
+  const topOutcodes = Array.from(outcodeCounts.entries())
+    .map(([outcode, value]) => ({
+      outcode,
+      region: regionForPostcode(outcode),
+      subscribers: value.count,
+      sampleSubscribers: Array.from(value.samples),
+    }))
+    .sort((a, b) => b.subscribers - a.subscribers || a.outcode.localeCompare(b.outcode))
+    .slice(0, 8);
+
+  const topRegions = Array.from(regionCounts.entries())
+    .map(([region, subscribers]) => ({ region, subscribers }))
+    .sort((a, b) => b.subscribers - a.subscribers || a.region.localeCompare(b.region))
+    .slice(0, 8);
+
+  return {
+    activeSubscribers: input.subscribers.length,
+    matchedSubscribers,
+    unmatchedSubscribers: input.subscribers.length - matchedSubscribers,
+    topGroups,
+    topOutcodes,
+    topRegions,
+  };
 }
 
 export async function claimDialerLeads(caller: DialerCaller, limit = 25) {

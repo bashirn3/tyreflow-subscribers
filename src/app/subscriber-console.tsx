@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import { formatSubscriberPhone, normalizeUkSubscriberPhone } from "@/lib/phone";
 
 export type Subscriber = {
   id: number;
@@ -208,7 +209,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
     const coverages = subscriberCoverages(subscriber);
     setForm({
       name: subscriber.name,
-      phone: `+${subscriber.phone}`,
+      phone: formatSubscriberPhone(subscriber.phone),
       postcode: subscriber.postcode,
       miles: String(subscriber.miles),
       active: subscriber.active,
@@ -295,10 +296,11 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
     setError(null);
 
     try {
+      const phone = normalizeUkSubscriberPhone(form.phone);
       const response = await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, id: editingSubscriberId || undefined }),
+        body: JSON.stringify({ ...form, phone, id: editingSubscriberId || undefined }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save subscriber.");
@@ -436,7 +438,17 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                 <input
                   value={form.phone}
                   onChange={(event) => setForm({ ...form, phone: event.target.value })}
-                  placeholder="+2347067131336"
+                  onBlur={() => {
+                    try {
+                      setForm((current) => ({
+                        ...current,
+                        phone: normalizeUkSubscriberPhone(current.phone),
+                      }));
+                    } catch {
+                      // Keep invalid text visible; submit will show the validation message.
+                    }
+                  }}
+                  placeholder="+447872571826"
                   type="tel"
                   className="rounded-xl border border-black/10 bg-[#fafbf7] px-3.5 py-2.5 outline-none transition focus:border-[#9fbd38] focus:bg-white"
                 />
@@ -665,7 +677,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                             <td className="px-4 py-4">
                               <p className="font-medium">{subscriber.name}</p>
                               <p className="mt-1 font-mono text-xs text-black/50">
-                                +{subscriber.phone}
+                                {formatSubscriberPhone(subscriber.phone)}
                               </p>
                             </td>
                             <td className="px-4 py-4 text-black/62">
@@ -782,7 +794,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                             </span>
                           </div>
                           <p className="mt-2 font-mono text-sm text-black/62">
-                            +{subscriber.phone}
+                            {formatSubscriberPhone(subscriber.phone)}
                           </p>
                           <p className="mt-3 text-sm text-black/62">
                             Base {subscriber.postcode}, default {subscriber.miles} miles
