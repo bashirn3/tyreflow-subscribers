@@ -619,7 +619,8 @@ export async function recordDialerOutcome(input: {
 }) {
   const taskType = taskTypeForOutcome(input.outcome);
   const now = new Date().toISOString();
-  const status = input.outcome === "closed" ? "closed" : "called";
+  const releaseToPool = input.outcome === "no_answer";
+  const status = input.outcome === "closed" ? "closed" : releaseToPool ? "unassigned" : "called";
   const notes = String(input.notes || "").trim();
 
   const event = await supabaseFetch<DialerCallEvent[]>(
@@ -646,9 +647,9 @@ export async function recordDialerOutcome(input: {
       headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         status,
-        assigned_to: input.caller.id,
-        assigned_name: input.caller.name,
-        assigned_at: now,
+        assigned_to: releaseToPool ? null : input.caller.id,
+        assigned_name: releaseToPool ? null : input.caller.name,
+        assigned_at: releaseToPool ? null : now,
         last_outcome: input.outcome,
         last_note: notes,
         last_called_at: now,
