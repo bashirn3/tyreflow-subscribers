@@ -67,6 +67,7 @@ supabase/tyreflow-subscriber-payment-notes-schema.sql
 supabase/tyreflow-dialer-schema.sql
 supabase/tyreflow-dialer-breakdown-exclusions-schema.sql
 supabase/tyreflow-dialer-high-intent-schema.sql
+supabase/tyreflow-dialer-arslan-high-intent-schema.sql
 supabase/tyreflow-inbound-leads-schema.sql
 ```
 

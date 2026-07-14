@@ -210,6 +210,7 @@ export function DialerConsole({
   const [recordingStatus, setRecordingStatus] = useState<string | null>(null);
   const [convertLead, setConvertLead] = useState<DialerLead | null>(null);
   const [convertForm, setConvertForm] = useState<SubscriberConvertForm | null>(null);
+  const isArslanSession = activeCaller?.id === "arslan";
   const recorder = useRef<RecorderState>({
     media: null,
     stream: null,
@@ -221,8 +222,20 @@ export function DialerConsole({
 
   const callerAssignedLeads = useMemo(() => {
     if (!activeCaller) return [];
-    return data.leads.filter((lead) => lead.assigned_to === activeCaller.id);
+    return data.leads.filter(
+      (lead) =>
+        lead.assigned_to === activeCaller.id &&
+        (activeCaller.id === "arslan" || !isHighIntentLead(lead)),
+    );
   }, [activeCaller, data.leads]);
+
+  const visibleQueueFilters = useMemo(
+    () =>
+      isArslanSession
+        ? queueFilters
+        : queueFilters.filter((filter) => filter !== "high_intent"),
+    [isArslanSession],
+  );
 
   const queueCounts = useMemo(() => {
     return Object.fromEntries(
@@ -822,7 +835,7 @@ export function DialerConsole({
                 />
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {queueFilters.map((filter) => (
+                  {visibleQueueFilters.map((filter) => (
                     <button
                       key={filter}
                       type="button"
@@ -887,7 +900,7 @@ export function DialerConsole({
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs">
                           {lead.is_business && <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-[#34420d]">Business</span>}
-                          {intent.tier === "high" && (
+                          {isArslanSession && intent.tier === "high" && (
                             <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-900">
                               High intent
                             </span>
@@ -916,7 +929,7 @@ export function DialerConsole({
                   <>
                     {(() => {
                       const intent = dialerLeadIntent(selectedLead);
-                      return intent.tier === "high" ? (
+                      return isArslanSession && intent.tier === "high" ? (
                         <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                           <p className="font-semibold">High intent lead</p>
                           <p className="mt-1 text-amber-800/80">
