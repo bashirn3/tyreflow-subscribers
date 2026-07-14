@@ -108,9 +108,34 @@ export const DIALER_HARD_BLOCKED_PHONES = new Set([
   "447354247247",
   "447476190546",
 ]);
+const NATIONAL_MOBILE_TYRES_24HR_RE = /national\s+mobile\s+tyres\s*24\s*hr/i;
+const BREAKDOWN_RECOVERY_RE = /\b(break\s*down|breakdown|recovery|road\s*side\s+assistance|roadside\s+assistance)\b/i;
 
 export function phoneDigits(value: unknown) {
   return String(value || "").replace(/[^0-9]/g, "");
+}
+
+export function dialerLeadSuppressionReason(lead: Pick<
+  DialerLead,
+  "assigned_group" | "all_groups" | "display_name" | "saved_name" | "public_display_name"
+>) {
+  const groupText = [lead.assigned_group, lead.all_groups].join(" ");
+  if (NATIONAL_MOBILE_TYRES_24HR_RE.test(groupText)) {
+    return "National Mobile Tyres 24HR group";
+  }
+
+  const leadText = [
+    lead.display_name,
+    lead.saved_name,
+    lead.public_display_name,
+    lead.assigned_group,
+    lead.all_groups,
+  ].join(" ");
+  if (BREAKDOWN_RECOVERY_RE.test(leadText)) {
+    return "Breakdown/recovery contact";
+  }
+
+  return null;
 }
 
 export function taskTypeForOutcome(outcome: DialerOutcome): DialerTaskType | null {
@@ -229,7 +254,11 @@ export async function fetchDialerLeads(
 
   return leads.filter((lead) => {
     const digits = phoneDigits(lead.phone);
-    return !DIALER_HARD_BLOCKED_PHONES.has(digits) && !subscriberPhones.has(digits);
+    return (
+      !DIALER_HARD_BLOCKED_PHONES.has(digits) &&
+      !subscriberPhones.has(digits) &&
+      !dialerLeadSuppressionReason(lead)
+    );
   });
 }
 
