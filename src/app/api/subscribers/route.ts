@@ -54,6 +54,13 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
+const manualSubscriberOwners = [
+  { id: "arslan", name: "Arslan" },
+  { id: "umer", name: "Umer" },
+  { id: "saleh", name: "Saalah" },
+  { id: "ayaz", name: "Ayaz" },
+] as const;
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -66,6 +73,36 @@ function requireConfig() {
 
 function normalizeCode(value: unknown) {
   return String(value || "").trim().toUpperCase().replace(/\s+/g, " ");
+}
+
+function normalizeSubscriberOwner(body: SubscriberPayload) {
+  const rawId = String(body.created_by_caller_id || "").trim();
+  const rawName = String(body.created_by_caller_name || "").trim();
+
+  if (rawId) {
+    const key = rawId.toLowerCase().replace(/[^a-z0-9]+/g, "");
+    const manualOwner = manualSubscriberOwners.find((owner) => owner.id === key);
+    const callerOwner = normalizeCaller(rawId);
+    const owner = manualOwner || callerOwner;
+    if (owner) return { id: owner.id, name: owner.name };
+    if (!rawName) throw new Error("Unknown subscriber owner.");
+  }
+
+  if (rawName) {
+    const manualOwner = manualSubscriberOwners.find(
+      (owner) => owner.name.toLowerCase() === rawName.toLowerCase(),
+    );
+    if (manualOwner) return { id: manualOwner.id, name: manualOwner.name };
+    return { id: null, name: rawName };
+  }
+
+  throw new Error("Added by is required.");
+}
+
+function normalizeCreatedFrom(value: unknown, hasExplicitSource: boolean) {
+  const source = String(value || "").trim();
+  if (source) return source.slice(0, 64);
+  return hasExplicitSource ? "subscriber_dashboard" : "dialer";
 }
 
 async function supabaseFetch(path: string, init: RequestInit = {}) {
@@ -302,9 +339,16 @@ export async function POST(request: Request) {
     const miles = Number(body.miles);
     const paidStatus = body.paid_status === "paid" ? "paid" : "trial";
     const notes = String(body.notes || "Agreed £50").trim() || "Agreed £50";
-    const ownerCaller = body.created_by_caller_id
-      ? normalizeCaller(body.created_by_caller_id)
-      : null;
+    let owner;
+    try {
+      owner = normalizeSubscriberOwner(body);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : "Added by is required.");
+    }
+    const createdFrom = normalizeCreatedFrom(
+      body.created_from,
+      Boolean(body.created_by_caller_name),
+    );
     const coverageInputs =
       body.coverages && body.coverages.length
         ? body.coverages
@@ -315,9 +359,6 @@ export async function POST(request: Request) {
     if (!postcode) return jsonError("Postcode is required.");
     if (!Number.isFinite(miles) || miles <= 0) {
       return jsonError("Miles must be a positive number.");
-    }
-    if (body.created_by_caller_id && !ownerCaller) {
-      return jsonError("Unknown subscriber owner.");
     }
 
     const { lat, lon } = await geocodePostcode(postcode);
@@ -336,9 +377,9 @@ export async function POST(request: Request) {
       active: body.active ?? true,
       paid_status: paidStatus,
       notes,
-      created_by_caller_id: ownerCaller?.id || null,
-      created_by_caller_name: ownerCaller?.name || null,
-      created_from: ownerCaller ? "dialer" : null,
+      created_by_caller_id: owner.id,
+      created_by_caller_name: owner.name,
+      created_from: createdFrom,
     };
 
     let data;
@@ -363,7 +404,7 @@ export async function POST(request: Request) {
     } catch (error) {
       if (!isMissingColumnError(error)) throw error;
       const missingDetail = error instanceof Error ? error.message : "";
-      if (ownerCaller && missingDetail.includes("created_by_caller")) {
+      if (missingDetail.includes("created_by_caller")) {
         throw new Error(
           "Subscriber ownership columns are missing. Run supabase/tyreflow-subscriber-ownership-schema.sql.",
         );

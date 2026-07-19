@@ -41,9 +41,19 @@ type FormState = {
   paid_status: "paid" | "trial";
   notes: string;
   coverages: Coverage[];
+  ownerChoice: ManualOwnerChoice;
+  ownerCustomName: string;
 };
 
 type StatusFilter = "all" | "active" | "paused";
+type ManualOwnerChoice = "arslan" | "umer" | "saleh" | "ayaz" | "others" | "";
+
+const manualOwnerOptions = [
+  { id: "arslan", name: "Arslan" },
+  { id: "umer", name: "Umer" },
+  { id: "saleh", name: "Saalah" },
+  { id: "ayaz", name: "Ayaz" },
+] as const;
 
 const initialForm: FormState = {
   name: "",
@@ -54,6 +64,8 @@ const initialForm: FormState = {
   paid_status: "trial",
   notes: "Agreed £50",
   coverages: [],
+  ownerChoice: "",
+  ownerCustomName: "",
 };
 
 const cityCoverageLabels: Record<string, string> = {
@@ -205,8 +217,47 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
         ];
   }
 
+  function ownerFormValues(subscriber: Subscriber) {
+    const knownOwner = manualOwnerOptions.find(
+      (owner) => owner.id === subscriber.created_by_caller_id,
+    );
+    if (knownOwner) return { ownerChoice: knownOwner.id, ownerCustomName: "" };
+    if (subscriber.created_by_caller_name) {
+      return {
+        ownerChoice: "others" as const,
+        ownerCustomName: subscriber.created_by_caller_name,
+      };
+    }
+    return { ownerChoice: "" as const, ownerCustomName: "" };
+  }
+
+  function ownerPayload() {
+    const ownerChoice = form.ownerChoice;
+    if (!ownerChoice) throw new Error("Added by is required.");
+
+    if (ownerChoice === "others") {
+      const ownerName = form.ownerCustomName.trim();
+      if (!ownerName) throw new Error("Owner name is required when Added by is Others.");
+      return {
+        created_by_caller_id: null,
+        created_by_caller_name: ownerName,
+        created_from: "subscriber_dashboard",
+      };
+    }
+
+    const owner = manualOwnerOptions.find((option) => option.id === ownerChoice);
+    if (!owner) throw new Error("Added by is required.");
+
+    return {
+      created_by_caller_id: owner.id,
+      created_by_caller_name: owner.name,
+      created_from: "subscriber_dashboard",
+    };
+  }
+
   function editSubscriber(subscriber: Subscriber) {
     const coverages = subscriberCoverages(subscriber);
+    const owner = ownerFormValues(subscriber);
     setForm({
       name: subscriber.name,
       phone: formatSubscriberPhone(subscriber.phone),
@@ -216,6 +267,7 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
       paid_status: subscriber.paid_status,
       notes: subscriber.notes || "",
       coverages,
+      ...owner,
     });
     setCoverageMiles(String(subscriber.miles || 30));
     setEditingSubscriberId(subscriber.id);
@@ -297,10 +349,16 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
 
     try {
       const phone = normalizeUkSubscriberPhone(form.phone);
+      const owner = ownerPayload();
       const response = await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, phone, id: editingSubscriberId || undefined }),
+        body: JSON.stringify({
+          ...form,
+          ...owner,
+          phone,
+          id: editingSubscriberId || undefined,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not save subscriber.");
@@ -507,6 +565,44 @@ export function SubscriberConsole({ initialSubscribers }: SubscriberConsoleProps
                   <option value="paused">Paused - hidden from matching</option>
                 </select>
               </label>
+              <label className="grid gap-2 text-sm font-medium">
+                Added by
+                <select
+                  required
+                  value={form.ownerChoice}
+                  onChange={(event) =>
+                    setForm({
+                      ...form,
+                      ownerChoice: event.target.value as ManualOwnerChoice,
+                      ownerCustomName:
+                        event.target.value === "others" ? form.ownerCustomName : "",
+                    })
+                  }
+                  className="rounded-xl border border-black/10 bg-[#fafbf7] px-3.5 py-2.5 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                >
+                  <option value="">Choose owner</option>
+                  {manualOwnerOptions.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {owner.name}
+                    </option>
+                  ))}
+                  <option value="others">Others</option>
+                </select>
+              </label>
+              {form.ownerChoice === "others" && (
+                <label className="grid gap-2 text-sm font-medium">
+                  Owner name
+                  <input
+                    required
+                    value={form.ownerCustomName}
+                    onChange={(event) =>
+                      setForm({ ...form, ownerCustomName: event.target.value })
+                    }
+                    placeholder="Name"
+                    className="rounded-xl border border-black/10 bg-[#fafbf7] px-3.5 py-2.5 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  />
+                </label>
+              )}
               <label className="grid gap-2 text-sm font-medium sm:col-span-2">
                 Notes
                 <textarea
