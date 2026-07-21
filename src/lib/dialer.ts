@@ -109,10 +109,17 @@ type SubscriberInsightRow = {
 };
 
 export const DIALER_CALLERS: DialerCaller[] = [
-  { id: "saleh", name: "Saalah" },
+  { id: "saleh", name: "Umar" },
   { id: "arslan", name: "Arslan" },
   { id: "ayaz", name: "Ayaz" },
 ];
+
+const DIALER_CALLER_ALIASES: Record<string, string> = {
+  saalah: "saleh",
+  salah: "saleh",
+  umer: "saleh",
+  umar: "saleh",
+};
 
 export const PUBLIC_DIALER_CALLERS = DIALER_CALLERS.filter(
   (caller) => caller.id !== "ayaz",
@@ -211,7 +218,8 @@ export function taskTypeForOutcome(outcome: DialerOutcome): DialerTaskType | nul
 
 export function normalizeCaller(raw: unknown): DialerCaller | null {
   const key = String(raw || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
-  return DIALER_CALLERS.find((caller) => caller.id === key) || null;
+  const callerId = DIALER_CALLER_ALIASES[key] || key;
+  return DIALER_CALLERS.find((caller) => caller.id === callerId) || null;
 }
 
 export function normalizePhone(value: unknown) {
