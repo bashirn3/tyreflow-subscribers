@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
     if (action === "claim") {
       const caller = normalizeCaller(body.caller_id);
-      if (!caller) return jsonError("Choose Saalah, Arslan, or Ayaz.");
+      if (!caller) return jsonError("Choose Umar, Arslan, or Ayaz.");
 
       const claimed = await claimDialerLeads(
         caller,
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
 
     if (action === "outcome") {
       const caller = normalizeCaller(body.caller_id);
-      if (!caller) return jsonError("Choose Saalah, Arslan, or Ayaz.");
+      if (!caller) return jsonError("Choose Umar, Arslan, or Ayaz.");
       if (!body.lead_id) return jsonError("lead_id is required.");
       if (!isDialerOutcome(body.outcome)) return jsonError("Valid outcome is required.");
 

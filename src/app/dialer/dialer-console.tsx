@@ -1477,7 +1477,7 @@ export function AdminView({
         <div className="rounded-[26px] border border-black/8 bg-white p-5 shadow-[0_18px_50px_rgba(33,41,24,0.08)]">
           <p className="text-sm font-medium text-[#60721f]">Callers</p>
           <h2 className="mt-1 text-2xl font-semibold tracking-[-0.035em]">
-            Saalah, Arslan, Ayaz
+            Umar, Arslan, Ayaz
           </h2>
 
           <div className="mt-5 grid gap-3">
