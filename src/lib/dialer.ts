@@ -109,7 +109,7 @@ type SubscriberInsightRow = {
 };
 
 export const DIALER_CALLERS: DialerCaller[] = [
-  { id: "saleh", name: "Umar" },
+  { id: "saleh", name: "Umer" },
   { id: "arslan", name: "Arslan" },
   { id: "ayaz", name: "Ayaz" },
 ];
