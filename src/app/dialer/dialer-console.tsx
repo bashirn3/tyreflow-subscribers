@@ -49,7 +49,17 @@ type SubscriberConvertForm = {
   miles: string;
   paid_status: "paid" | "trial";
   notes: string;
+  ownerOverride: SubscriberOwnerChoice;
 };
+
+type SubscriberOwnerChoice = "arslan" | "umer" | "saleh" | "ayaz" | "";
+
+const subscriberOwnerOptions = [
+  { id: "arslan", name: "Arslan" },
+  { id: "umer", name: "Umer" },
+  { id: "saleh", name: "Saalah" },
+  { id: "ayaz", name: "Ayaz" },
+] as const;
 
 const outcomeColors: Record<DialerOutcome, string> = {
   not_interested: "bg-rose-100 text-rose-800",
@@ -164,7 +174,21 @@ function convertFormFromLead(lead: DialerLead): SubscriberConvertForm {
     miles: "50",
     paid_status: "trial",
     notes: lead.last_note || "",
+    ownerOverride: "",
   };
+}
+
+function defaultSubscriberOwnerForCaller(caller: DialerCaller) {
+  if (caller.id === "saleh") {
+    return { id: "umer", name: "Umer" };
+  }
+
+  return { id: caller.id, name: caller.name };
+}
+
+function subscriberOwnerForConversion(caller: DialerCaller, override: SubscriberOwnerChoice) {
+  const overrideOwner = subscriberOwnerOptions.find((owner) => owner.id === override);
+  return overrideOwner || defaultSubscriberOwnerForCaller(caller);
 }
 
 function firstLeadForCaller(leads: DialerLead[], caller: DialerCaller) {
@@ -211,6 +235,9 @@ export function DialerConsole({
   const [convertLead, setConvertLead] = useState<DialerLead | null>(null);
   const [convertForm, setConvertForm] = useState<SubscriberConvertForm | null>(null);
   const isArslanSession = activeCaller?.id === "arslan";
+  const defaultSubscriberOwner = activeCaller
+    ? defaultSubscriberOwnerForCaller(activeCaller)
+    : null;
   const recorder = useRef<RecorderState>({
     media: null,
     stream: null,
@@ -365,6 +392,7 @@ export function DialerConsole({
 
     try {
       const phone = normalizeUkSubscriberPhone(convertForm.phone);
+      const owner = subscriberOwnerForConversion(activeCaller, convertForm.ownerOverride);
       const response = await fetch("/api/subscribers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -376,7 +404,9 @@ export function DialerConsole({
           paid_status: convertForm.paid_status,
           notes: convertForm.notes,
           active: true,
-          created_by_caller_id: activeCaller.id,
+          created_by_caller_id: owner.id,
+          created_by_caller_name: owner.name,
+          created_from: "dialer",
         }),
       });
       const payload = await response.json();
@@ -1295,6 +1325,39 @@ export function DialerConsole({
                   <option value="paid">Paid</option>
                 </select>
               </label>
+
+              {defaultSubscriberOwner && (
+                <label className="grid gap-2 text-sm font-medium">
+                  Added by override <span className="text-xs font-normal text-black/45">(optional)</span>
+                  <select
+                    value={convertForm.ownerOverride}
+                    onChange={(event) =>
+                      setConvertForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              ownerOverride: event.target.value as SubscriberOwnerChoice,
+                            }
+                          : current,
+                      )
+                    }
+                    className="rounded-2xl border border-black/10 bg-[#fafbf7] px-4 py-3 outline-none transition focus:border-[#9fbd38] focus:bg-white"
+                  >
+                    <option value="">
+                      Use active caller ({defaultSubscriberOwner.name})
+                    </option>
+                    {subscriberOwnerOptions.map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs font-normal text-black/45">
+                    Subscriber will show as{" "}
+                    {subscriberOwnerForConversion(activeCaller, convertForm.ownerOverride).name}.
+                  </span>
+                </label>
+              )}
 
               <label className="grid gap-2 text-sm font-medium">
                 Notes
