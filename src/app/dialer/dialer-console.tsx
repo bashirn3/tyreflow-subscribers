@@ -234,7 +234,7 @@ export function DialerConsole({
   const [recordingStatus, setRecordingStatus] = useState<string | null>(null);
   const [convertLead, setConvertLead] = useState<DialerLead | null>(null);
   const [convertForm, setConvertForm] = useState<SubscriberConvertForm | null>(null);
-  const isArslanSession = activeCaller?.id === "arslan";
+  const isHighIntentSession = activeCaller?.id === "saleh";
   const defaultSubscriberOwner = activeCaller
     ? defaultSubscriberOwnerForCaller(activeCaller)
     : null;
@@ -252,16 +252,16 @@ export function DialerConsole({
     return data.leads.filter(
       (lead) =>
         lead.assigned_to === activeCaller.id &&
-        (activeCaller.id === "arslan" || !isHighIntentLead(lead)),
+        (isHighIntentSession || !isHighIntentLead(lead)),
     );
-  }, [activeCaller, data.leads]);
+  }, [activeCaller, data.leads, isHighIntentSession]);
 
   const visibleQueueFilters = useMemo(
     () =>
-      isArslanSession
+      isHighIntentSession
         ? queueFilters
         : queueFilters.filter((filter) => filter !== "high_intent"),
-    [isArslanSession],
+    [isHighIntentSession],
   );
 
   const queueCounts = useMemo(() => {
@@ -930,7 +930,7 @@ export function DialerConsole({
                         </p>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs">
                           {lead.is_business && <span className="rounded-full bg-[#dff1a0] px-2.5 py-1 text-[#34420d]">Business</span>}
-                          {isArslanSession && intent.tier === "high" && (
+                          {isHighIntentSession && intent.tier === "high" && (
                             <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-900">
                               High intent
                             </span>
@@ -959,7 +959,7 @@ export function DialerConsole({
                   <>
                     {(() => {
                       const intent = dialerLeadIntent(selectedLead);
-                      return isArslanSession && intent.tier === "high" ? (
+                      return isHighIntentSession && intent.tier === "high" ? (
                         <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                           <p className="font-semibold">High intent lead</p>
                           <p className="mt-1 text-amber-800/80">
